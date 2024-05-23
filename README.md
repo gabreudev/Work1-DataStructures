@@ -1,5 +1,11 @@
 **Descrição do Trabalho: Implementação de Operações de Manipulação de Imagens com Histórico de Reversão**
 
+**Instrucoes para Controle de versão**
+- clonar o repositorio
+- criar um novo repositorio com os integrantes da equipe e o monitor (adrianorodriguesdsousa@ufpi.edu.br or certainlyWrong)
+- 
+
+
 **Orientações:**
 - O trabalho será realizado por até três alunos (não serão permitidos mais que três).
 - O trabalho deverá ser enviado via SIGAA.
