@@ -17,12 +17,10 @@ O objetivo deste projeto é desenvolver uma solução para manipulação de imag
    - A interface deve fornecer controles para aplicar novas operações, desfazer operações e navegar pelo histórico (ou seja, pelas posicoes da lista).
 
 4. **Operações randomicas:**
-   - Nessa opcao basta apenas escolher um tipo de imagem a qual as operacoes serao aplicadas. Sortear de forma randomica quais operacoes serao aplicadas a imagem. Feito isso, apresentar numa lista encadeada simples, o resultado final, isto é, cada posicao da lista que corresponde a uma operacao, e o resultado final.
+   - Nesta abordagem, o usuário seleciona um tipo de imagem para o qual deseja aplicar operações de processamento. O sistema, então, escolhe aleatoriamente quais operações serão aplicadas a essa imagem. Após a conclusão das operações, o resultado final é apresentado em uma lista encadeada simples. Cada entrada na lista corresponde a uma operação realizada, permitindo ao usuário visualizar o processo passo a passo e o resultado final da manipulação da imagem.
 
-
-5. **Observaçoes:**
-   - Muitas funcoes nao foram mapeadas, vai do programador fazer isso.
-   - Atentar aos requisitos dispostos anteriormente
-
+5. **Observações:**
+   - Muitas funções do sistema podem não estar mapeadas, deixando espaço para que o desenvolvedor as implemente conforme necessário.
+   - É importante observar atentamente os requisitos mencionados anteriormente para garantir que o sistema atenda às expectativas e funcione conforme o esperado.
 
 
