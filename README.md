@@ -1,5 +1,11 @@
 **Descrição do Trabalho: Implementação de Operações de Manipulação de Imagens com Histórico de Reversão**
 
+**Orientações:**
+- O trabalho será realizado por até três alunos (não serão permitidos mais que três).
+- O trabalho deverá ser enviado via SIGAA.
+- A pontuação máxima será de 10 pontos.
+- Utilize apenas a linguagem C para implementação. O uso de auxiliares em Python disponibilizados no repositório também é permitido.
+
 **Objetivo:**
 O objetivo deste projeto é desenvolver uma solução para manipulação de imagens que permita a aplicação de várias operações, como rotação, inversão e filtros, em imagens em escala de cinza e em cores. Além disso, o sistema deve fornecer um histórico reversível das operações realizadas, permitindo ao usuário voltar para versões anteriores da imagem.
 
