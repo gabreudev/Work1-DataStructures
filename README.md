@@ -7,7 +7,7 @@
 - Utilize apenas a linguagem C para implementação. O uso de auxiliares em Python disponibilizados no repositório também é permitido.
 
 **Objetivo:**
-O objetivo deste projeto é desenvolver uma solução para manipulação de imagens que permita a aplicação de várias operações, como rotação, inversão e filtros, em imagens em escala de cinza e em cores. Além disso, o sistema deve fornecer um histórico reversível das operações realizadas, permitindo ao usuário voltar para versões anteriores da imagem.
+O objetivo deste projeto é desenvolver uma solução para manipulação de imagens que permita a aplicação de várias operações, como rotação, inversão e filtros, em imagens em escala de cinza e em cores. Além disso, o sistema deve fornecer um histórico reversível das operações realizadas, permitindo ao usuário voltar para versões anteriores da imagem, ou caso necessário, ir novamente para a versão mais adiante, afinal é uma lista dupla.
 
 **Implementação:**
 1. **Estrutura de Dados:**
