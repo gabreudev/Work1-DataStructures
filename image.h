@@ -31,16 +31,14 @@ ImageRGB *create_image_rgb(int largura, int altura);
 void free_image_rgb(ImageRGB *image);
 
 // Operações para ImageGray
-void flip_vertical_gray(ImageGray *image);
-void flip_horizontal_gray(ImageGray *image);
-ImageGray *rotate_90_clockwise_gray(const ImageGray *image);
-ImageGray *rotate_90_counterclockwise_gray(const ImageGray *image);
+ImageGray *flip_vertical_gray(ImageGray *image);
+ImageGray *flip_horizontal_gray(ImageGray *image);
+ImageGray *transpose(const ImageGray *image);
 
 // Operações para ImageRGB
-void flip_vertical_rgb(ImageRGB *image);
-void flip_horizontal_rgb(ImageRGB *image);
-ImageRGB *rotate_90_clockwise_rgb(const ImageRGB *image);
-ImageRGB *rotate_90_counterclockwise_rgb(const ImageRGB *image);
+ImageRGB *flip_vertical_rgb(const ImageRGB *image);
+ImageRGB *flip_horizontal_rgb(const ImageRGB *image);
+ImageRGB *transpose(const ImageRGB *image);
 
 // Manipulação por pixel para ImageGray
 ImageGray *clahe_gray(const ImageGray *image, int tile_width, int tile_height);
