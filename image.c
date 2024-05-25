@@ -24,6 +24,9 @@ struct ImageRGB {
     PixelRGB *pixels;
 };
 
+// "Converte" posição de matriz para posição de vetor
+int posicaoVetor(int largura, int i, int j) { return largura * i + j; }
+
 ImageGray *alocar_image_gray(int largura, int altura)
 {
     ImageGray *image = (ImageGray *)malloc(sizeof(ImageGray));
@@ -87,7 +90,23 @@ void free_image_RGB(ImageRGB *image)
 // Operações para ImageGray
 ImageGray *flip_vertical_gray(ImageGray *image);
 ImageGray *flip_horizontal_gray(ImageGray *image);
-ImageGray *transpose_gray(const ImageGray *image);
+ImageGray *transpose_gray(const ImageGray *image){
+
+    ImageGray *newImage = alocar_image_gray(image->dim.altura, image->dim.largura);
+    newImage->dim.altura = image->dim.altura;
+    newImage->dim.largura = image->dim.largura;
+
+    for (int i = 0; i < image->dim.altura; i++)
+    {
+        for (int j = 0; j < image->dim.largura; j++)
+        {
+        newImage->pixels[posicaoVetor(image->dim.altura, image->dim.largura, image->dim.altura)] = image->pixels[posicaoVetor(image->dim.largura, image->dim.altura, image->dim.largura)];
+            
+        }
+    return newImage;
+    }
+
+}
 
 // Operações para ImageRGB
 ImageRGB *flip_vertical_rgb(const ImageRGB *image);
