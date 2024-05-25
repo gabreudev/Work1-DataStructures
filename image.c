@@ -60,16 +60,16 @@ PixelRGB *alocar_pixel_RGB(int largura, int altura)
 ImageGray *create_image_gray(int largura, int altura) 
 {
     ImageGray *image = alocar_image_gray(largura, altura);
-
     image->pixels = alocar_pixel_gray(largura, altura);
+    
     return image;
 }
 
 ImageRGB *create_image_rgb(int largura, int altura)
 {
     ImageRGB *image = alocar_image_RGB(largura, altura);
-
     image->pixels = alocar_pixel_RGB(largura, altura);
+
     return image;
 }
 
@@ -84,6 +84,7 @@ void free_image_RGB(ImageRGB *image)
     free(image->pixels);
     free(image);
 }
+
 // Operações para ImageGray
 ImageGray *flip_vertical_gray(ImageGray *image);
 ImageGray *flip_horizontal_gray(ImageGray *image);
