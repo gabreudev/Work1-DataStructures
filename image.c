@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "image.h"
+
 struct Dimensoes {
     int altura, largura;
 };
@@ -23,13 +24,66 @@ struct ImageRGB {
     PixelRGB *pixels;
 };
 
+ImageGray *alocar_image_gray(int largura, int altura)
+{
+    ImageGray *image = (ImageGray *)malloc(sizeof(ImageGray));
+    image->dim.largura = largura;
+    image->dim.altura = altura;
+
+    return image;
+}
+
+PixelGray *alocar_pixel_gray(int largura, int altura)
+{
+    PixelGray *vetor = (PixelGray *)malloc(largura * altura * sizeof(PixelGray));
+
+    return vetor;
+}
+
+ImageRGB *alocar_image_RGB(int largura, int altura)
+{
+    ImageRGB *image = (ImageRGB *)malloc(sizeof(ImageRGB));
+    image->dim.largura = largura;
+    image->dim.altura = altura;
+
+    return image;
+}
+
+PixelRGB *alocar_pixel_RGB(int largura, int altura)
+{
+    PixelRGB *vetor = (PixelRGB *)malloc(largura * altura * sizeof(PixelRGB));
+
+    return vetor;
+}
+
 // Funções de criação e liberação
-ImageGray *create_image_gray(int largura, int altura);
-void free_image_gray(ImageGray *image);
+ImageGray *create_image_gray(int largura, int altura) 
+{
+    ImageGray *image = alocar_image_gray(largura, altura);
 
-ImageRGB *create_image_rgb(int largura, int altura);
-void free_image_rgb(ImageRGB *image);
+    image->pixels = alocar_pixel_gray(largura, altura);
+    return image;
+}
 
+ImageRGB *create_image_rgb(int largura, int altura)
+{
+    ImageRGB *image = alocar_image_RGB(largura, altura);
+
+    image->pixels = alocar_pixel_RGB(largura, altura);
+    return image;
+}
+
+void free_image_gray(ImageGray *image) 
+{
+    free(image->pixels);
+    free(image);
+}
+
+void free_image_RGB(ImageRGB *image) 
+{
+    free(image->pixels);
+    free(image);
+}
 // Operações para ImageGray
 ImageGray *flip_vertical_gray(ImageGray *image);
 ImageGray *flip_horizontal_gray(ImageGray *image);
