@@ -60,8 +60,7 @@ PixelRGB *alocar_pixel_RGB(int largura, int altura)
 ImageGray *create_image_gray(int largura, int altura) 
 {
     ImageGray *image = alocar_image_gray(largura, altura);
-    image->dim.largura = largura;
-    image->dim.altura = altura;
+
     image->pixels = alocar_pixel_gray(largura, altura);
     return image;
 }
@@ -69,8 +68,7 @@ ImageGray *create_image_gray(int largura, int altura)
 ImageRGB *create_image_rgb(int largura, int altura)
 {
     ImageRGB *image = alocar_image_RGB(largura, altura);
-    image->dim.largura = largura;
-    image->dim.altura = altura;
+
     image->pixels = alocar_pixel_RGB(largura, altura);
     return image;
 }
