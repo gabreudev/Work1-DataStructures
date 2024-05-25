@@ -8,7 +8,7 @@ typedef struct dimensoes {
 typedef struct pixelRGB {
     int red, blue, green;
 } PixelRGB;
-
+// testando branch
 typedef struct pixelGray {
     int value;
 } PixelGray;
