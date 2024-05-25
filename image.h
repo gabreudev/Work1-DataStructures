@@ -1,6 +1,6 @@
 #ifndef IMAGE_H
 #define IMAGE_H
-
+// alef
 typedef struct dimensoes {
     int altura, largura;
 } Dimensoes;
