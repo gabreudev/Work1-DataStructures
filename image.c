@@ -8,7 +8,12 @@
 
 //////////////////////////////////////////
 ////////////// DEFINES //////////////////
+
 #define NIVEL_INTENSIDADE 256
+
+
+///////////////////////////////////////////
+//////////////// STRUCTS //////////////////
 
 struct Dimensoes {
     int altura, largura;
@@ -32,18 +37,33 @@ struct ImageRGB {
     PixelRGB *pixels;
 };
 
+struct History {
+    ImageRGB *image;
+    History *right;
+    History *left;
+};
+
+///////////////////////////////////////////////////////////////
+//////////////////// Operações para ERRO //////////////////////
+
+// Checa a alocação de memoria 
+void check_allocation(void *pointer, const char *mensage) 
+{
+    if(!pointer) 
+    {
+        fprintf(stderr, "Erro ao alocar memória para %s: %d - %s\n", mensage, errno, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+}
+
+
 // "Converte" posição de matriz para posição de vetor
 int posicaoVetor(int largura, int i, int j) { return largura * i + j; }
 
 ImageGray *alocar_image_gray(int largura, int altura)
 {
     ImageGray *image = (ImageGray *)malloc(sizeof(ImageGray));
-
-    if(!image) 
-    {
-        fprintf(stderr, "Erro ao alocar memória para imagem\n");
-        exit(EXIT_FAILURE);
-    }
+    check_allocation(image, "imageGray");
 
     image->dim.largura = largura;
     image->dim.altura = altura;
@@ -54,12 +74,7 @@ ImageGray *alocar_image_gray(int largura, int altura)
 PixelGray *alocar_pixel_gray(int largura, int altura)
 {
     PixelGray *pixel = (PixelGray *)malloc(largura * altura * sizeof(PixelGray));
-
-    if(!pixel) 
-    {
-        fprintf(stderr, "Erro ao alocar memória para pixel\n");
-        exit(EXIT_FAILURE);
-    }
+    check_allocation(pixel, "pixelGray");
 
     return pixel;
 }
@@ -67,12 +82,7 @@ PixelGray *alocar_pixel_gray(int largura, int altura)
 ImageRGB *alocar_image_RGB(int largura, int altura)
 {
     ImageRGB *image = (ImageRGB *)malloc(sizeof(ImageRGB));
-
-    if(!image) 
-    {
-        fprintf(stderr, "Erro ao alocar memória para imagem\n");
-        exit(EXIT_FAILURE);
-    }
+    check_allocation(image, "imageRGB");
 
     image->dim.largura = largura;
     image->dim.altura = altura;
@@ -83,12 +93,7 @@ ImageRGB *alocar_image_RGB(int largura, int altura)
 PixelRGB *alocar_pixel_RGB(int largura, int altura)
 {
     PixelRGB *pixel = (PixelRGB *)malloc(largura * altura * sizeof(PixelRGB));
-
-    if(!pixel) 
-    {
-        fprintf(stderr, "Erro ao alocar memória para pixel\n");
-        exit(EXIT_FAILURE);
-    }
+    check_allocation(pixel, "pixelRGB");
 
     return pixel;
 }
@@ -133,8 +138,11 @@ void free_pixel_RGB(PixelRGB *pixel)
     free(pixel);
     pixel = NULL;
 }
+
 ///////////////////////////////////////////////////////////////
 ////////////////// Operações para Arquivo//////////////////////
+
+// Abrir arquivo nome do arquivo e tipo de operação(ler/escrever)
 FILE *open(char *name, char *operation)
 {
     FILE *file = fopen(name, operation);
@@ -147,17 +155,105 @@ FILE *open(char *name, char *operation)
 
     return file;
 }
-///////////////////////////////////////////////////////////////
-//////////////////// Operações para ERRO //////////////////////
-void check_allocation(void *pointer, const char *mensage) 
+
+// Ler txt e converter em imagem -> ImageRGB
+ImageRGB *read_rgb_image(FILE *arquivo)
 {
-    if (!pointer) 
+    ImageRGB temp;
+
+    fscanf(arquivo, "%d", &temp.dim.altura);
+    fgetc(arquivo);
+    fscanf(arquivo, "%d", &temp.dim.largura);
+    fgetc(arquivo);
+    
+    ImageRGB *image = alocar_image_RGB(temp.dim.altura, temp.dim.largura);
+
+    for (int i = 0, cont = 0; i < image->dim.altura * image->dim.largura; i++, cont++)
     {
-        fprintf(stderr, "Erro ao alocar memória para %s: %d - %s\n", mensage, errno, strerror(errno));
-        exit(EXIT_FAILURE);
+        if(cont == image->dim.largura)
+        {
+            fgetc(arquivo);
+            cont = 0;
+        }
+
+        fscanf(arquivo, "%d %d %d", image->pixels[i].red, image->pixels[i].green, image->pixels[i].blue);
+        fgetc(arquivo);
+    }
+
+    return image;    
+}
+
+// Ler txt e converter em imagem -> Imagegray
+ImageGray *read_gray_image(FILE *arquivo)
+{
+    ImageGray temp;
+
+    fscanf(arquivo, "%d", &temp.dim.altura);
+    fgetc(arquivo);
+    fscanf(arquivo, "%d", &temp.dim.largura);
+    fgetc(arquivo);
+    
+    ImageGray *image = alocar_image_gray(temp.dim.altura, temp.dim.largura);
+
+    for (int i = 0, cont = 0; i < image->dim.altura * image->dim.largura; i++, cont++)
+    {
+        if(cont == image->dim.largura)
+        {
+            fgetc(arquivo);
+            cont = 0;
+        }
+
+        fscanf(arquivo, "%d,", &image->pixels[i].value);
+        fgetc(arquivo);
+    }
+
+    return image;    
+}
+
+// Exportar imagem RGB para txt -> txt salvo
+void save_image_rgb(ImageRGB *image, FILE *arquivo)
+{
+    int tam = image->dim.altura * image->dim.largura;
+
+    fprintf(arquivo, "%d", image->dim.altura);
+    fprintf(arquivo, "\n");
+    fprintf(arquivo, "%d", image->dim.largura);
+    fprintf(arquivo, "\n");
+
+    for (int i = 0, cont = 0; i < tam; i++, cont++)
+    {
+        if(cont == image->dim.largura)
+        {
+            fprintf(arquivo, "\n");
+            cont = 0;
+        }
+
+        fprintf(arquivo, "%d %d %d", image->pixels[i].red, image->pixels[i].green, image->pixels[i].blue);
     }
 }
 
+
+// Exportar imagem nível cinza para txt -> txt salvo
+void save_image_gray(ImageGray *image, FILE *arquivo)
+{
+    int tam = image->dim.altura * image->dim.largura;
+
+    fprintf(arquivo, "%d", image->dim.altura);
+    fprintf(arquivo, "\n");
+    fprintf(arquivo, "%d", image->dim.largura);
+    fprintf(arquivo, "\n");
+
+    for (int i = 0, cont = 0; i < tam; i++, cont++)
+    {
+        if(cont == image->dim.largura)
+        {
+            fprintf(arquivo, "\n");
+            cont = 0;
+        }
+
+        fprintf(arquivo, "%d,", image->pixels[i].value);
+    }
+}
 
 ///////////////////////////////////////////////////////////////
 //////////////// Operações para ImageGray//////////////////////
@@ -187,6 +283,7 @@ ImageGray *transpose_gray(const ImageGray *image)
 ImageRGB *flip_vertical_rgb(const ImageRGB *image)
 {
     ImageRGB *newImage = alocar_image_RGB(image->dim.altura, image->dim.largura);
+
     newImage->dim.altura = image->dim.altura;
     newImage->dim.largura = image->dim.largura;
     for (int i = 0; i < image->dim.altura; i++)
@@ -202,6 +299,7 @@ ImageRGB *flip_vertical_rgb(const ImageRGB *image)
 ImageRGB *flip_horizontal_rgb(const ImageRGB *image)
 {
     ImageRGB *newImage = alocar_image_gray(image->dim.altura, image->dim.largura);
+
     newImage->dim.altura = image->dim.altura;
     newImage->dim.largura = image->dim.largura;
     for (int i = 0; i < image->dim.altura; i++)
@@ -444,7 +542,7 @@ ImageRGB *clahe_rgb(const ImageRGB *image, int tile_width, int tile_height)
             PixelRGB histogram[256] = {0};
 
             histogram_tile_rgb(image, histogram, x1, x2, tile_width, tile_height);
-            PixelRGB *CDF = cumulative_histogram(histogram);
+            PixelRGB *CDF = cumulative_histogram_rgb(histogram);
             equalize_tile_rgb(equalized_image, CDF, tile_width, tile_height, x1, x2);
 
             free(CDF);

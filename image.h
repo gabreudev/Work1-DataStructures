@@ -23,7 +23,14 @@ typedef struct imageRGB {
     PixelRGB *pixels;
 } ImageRGB;
 
+typedef struct history {
+    ImageRGB *image;
+    History *right;
+    History *left;
+}History;
 
+// Operações de ERRO
+void check_allocation(void *pointer, const char *mensage);
 
 // Funções de criação e liberação
 ImageGray *create_image_gray(int largura, int altura);
@@ -37,8 +44,6 @@ void free_pixel_RGB(PixelRGB *pixel);
 // Operações de arquivos 
 FILE *open(char *name, char *operation);
 
-// Operações de ERRO
-void check_allocation(void *pointer, const char *mensage);
 
 // Operações para ImageGray
 ImageGray *flip_vertical_gray(ImageGray *image);
