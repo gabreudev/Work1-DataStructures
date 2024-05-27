@@ -1,6 +1,5 @@
 #ifndef IMAGE_H
 #define IMAGE_H
-// alef
 typedef struct dimensoes {
     int altura, largura;
 } Dimensoes;
@@ -8,7 +7,7 @@ typedef struct dimensoes {
 typedef struct pixelRGB {
     int red, blue, green;
 } PixelRGB;
-// testando branch
+
 typedef struct pixelGray {
     int value;
 } PixelGray;
@@ -23,16 +22,19 @@ typedef struct imageRGB {
     PixelRGB *pixels;
 } ImageRGB;
 
-typedef enum imageType{
+
+typedef enum imageType {
     GRAY,
     RGB
 } ImageType;
+
+
 typedef struct history {
     void *image;
     ImageType type;
-    History *right;
-    History *left;
-}History;
+    struct history *right; 
+    struct history *left;  
+} History;
 
 
 // Operações de ERRO
