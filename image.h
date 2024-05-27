@@ -23,11 +23,17 @@ typedef struct imageRGB {
     PixelRGB *pixels;
 } ImageRGB;
 
+typedef enum imageType{
+    GRAY,
+    RGB
+} ImageType;
 typedef struct history {
-    ImageRGB *image;
+    void *image;
+    ImageType type;
     History *right;
     History *left;
 }History;
+
 
 // Operações de ERRO
 void check_allocation(void *pointer, const char *mensage);
@@ -41,9 +47,29 @@ ImageRGB *create_image_rgb(int largura, int altura);
 void free_image_rgb(ImageRGB *image);
 void free_pixel_RGB(PixelRGB *pixel);
 
-// Operações de arquivos 
+History *allocate_history();
+void free_history(History *history);
+
+//////////////////////
+int verify_NULL(History *history);
+
+History *back_image(History *history, int mode);
+ // função de refazer operações, avançando para a próxima imagem, se possível.
+History *next_image(History *history);
+// função de navegação pelo histórico, permitindo ir para versões específicas da imagem.
+History *browse_history(History *history, int version);
+
+
+////// Operações de arquivos /////////
 FILE *open(char *name, char *operation);
 
+// Ler txt e converter em imagem -> Image
+ImageRGB *read_rgb_image(FILE *arquivo);
+ImageGray *read_gray_image(FILE *arquivo);
+
+// Exportar imagem RGB para txt -> txt salvo
+void save_image_rgb(ImageRGB *image, FILE *arquivo);
+void save_image_gray(ImageGray *image, FILE *arquivo);
 
 // Operações para ImageGray
 ImageGray *flip_vertical_gray(ImageGray *image);

@@ -10,7 +10,10 @@
 ////////////// DEFINES //////////////////
 
 #define NIVEL_INTENSIDADE 256
-
+#define TRUE 1
+#define FALSE 0
+#define KEEP 1
+#define DELETE 0
 
 ///////////////////////////////////////////
 //////////////// STRUCTS //////////////////
@@ -37,8 +40,13 @@ struct ImageRGB {
     PixelRGB *pixels;
 };
 
+enum ImageType{
+    GRAY,
+    RGB
+};
 struct History {
-    ImageRGB *image;
+    void *image;
+    ImageType type;
     History *right;
     History *left;
 };
@@ -56,9 +64,11 @@ void check_allocation(void *pointer, const char *mensage)
     }
 }
 
-
 // "Converte" posição de matriz para posição de vetor
 int posicaoVetor(int largura, int i, int j) { return largura * i + j; }
+
+///////////////////////////////////////////////////////////////
+//////////////////// Operações para alocação //////////////////
 
 ImageGray *alocar_image_gray(int largura, int altura)
 {
@@ -139,6 +149,112 @@ void free_pixel_RGB(PixelRGB *pixel)
     pixel = NULL;
 }
 
+History *allocate_history()
+{
+    History *history = (History *)malloc(sizeof(History));
+    check_allocation(history, "historico");
+
+    history->left = NULL;
+    history->right = NULL;
+
+    return history;
+}
+
+void free_history(History *history)
+{
+    while(history != NULL) 
+    {
+        History *temp = history;
+        history = history->right;
+
+        (history->type == RGB) ? 
+            free_image_RGB(history->image) : free_image_gray(history->image);
+
+        free(temp);
+    }
+}
+
+///////////////////////////////////////////////////////////////
+////////////////// Operações para Historico//////////////////////
+
+int verify_NULL(History *history) 
+{ 
+    return (!history) ? TRUE : FALSE; 
+}
+
+// função de desfazer operações, removendo a imagem atual e retornando à anterior 
+// mode (1 - apaga a imagem, 0 - deixa a imagem no historico).
+History *back_image(History *history, int mode)
+{
+    if(!history || !history->right)
+        return history;
+
+    History *aux = history, *prox = history->right;
+
+    if(mode == 1)
+    {
+        while(!verify_NULL(aux))
+        {
+            if(!verify_NULL(prox))
+            {
+                prox->left = NULL;
+                aux->right = NULL;
+                
+                (prox->type == RGB) ? 
+                    free_image_RGB(prox->image) : free_image_gray(prox->image);
+
+                free(prox);
+                return aux;
+            }
+            aux = prox;
+            prox = prox->right;
+        }
+    }
+    else
+    {
+        if(!verify_NULL(aux->left))
+            aux = aux->left;
+
+        return aux;
+    }
+
+    return aux;
+}
+
+ // função de refazer operações, avançando para a próxima imagem, se possível.
+History *next_image(History *history)
+{
+    if(!history || !history->right)
+        return history;
+
+    return history->right;
+}
+
+// função de navegação pelo histórico, permitindo ir para versões específicas da imagem.
+History *browse_history(History *history, int version)
+{
+    if(version < 1 || !history)
+        return history;
+    
+    History *aux = history;
+    int cont = 0;
+
+    while(cont < version || !aux)
+    {
+        aux = aux->right;
+        cont += 1;
+    }
+    
+    if(cont != version)
+    {
+        printf("Versão não encontrada!");
+        return history;
+    }
+
+    return aux;
+}
+
+
 ///////////////////////////////////////////////////////////////
 ////////////////// Operações para Arquivo//////////////////////
 
@@ -176,7 +292,7 @@ ImageRGB *read_rgb_image(FILE *arquivo)
             cont = 0;
         }
 
-        fscanf(arquivo, "%d %d %d", image->pixels[i].red, image->pixels[i].green, image->pixels[i].blue);
+        fscanf(arquivo, "%d,%d,%d", image->pixels[i].red, image->pixels[i].green, image->pixels[i].blue);
         fgetc(arquivo);
     }
 
@@ -474,14 +590,14 @@ ImageGray *median_blur_gray(const ImageGray *image, int kernel_size)
 // RGB: Calcula a soma cumulativa dos valores do histograma
 PixelRGB *cumulative_histogram_rgb(PixelRGB *histogram) 
 {
-    PixelRGB *CDF = (PixelRGB *)calloc(256, sizeof(PixelRGB));
+    PixelRGB *CDF = (PixelRGB *)calloc(NIVEL_INTENSIDADE, sizeof(PixelRGB));
     check_allocation(CDF, "CDF");
 
     CDF[0].red = histogram[0].red;
     CDF[0].green = histogram[0].green;
     CDF[0].blue = histogram[0].blue;
 
-    for (int i = 1; i < 256; i++) 
+    for (int i = 1; i < NIVEL_INTENSIDADE; i++) 
     {
         CDF[i].red = CDF[i - 1].red + histogram[i].red;
         CDF[i].green = CDF[i - 1].green + histogram[i].green;
@@ -539,7 +655,7 @@ ImageRGB *clahe_rgb(const ImageRGB *image, int tile_width, int tile_height)
     {
         for (int x2 = 0; x2 < image->dim.altura; x2 += tile_height) 
         {
-            PixelRGB histogram[256] = {0};
+            PixelRGB histogram[NIVEL_INTENSIDADE] = {0};
 
             histogram_tile_rgb(image, histogram, x1, x2, tile_width, tile_height);
             PixelRGB *CDF = cumulative_histogram_rgb(histogram);
