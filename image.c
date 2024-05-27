@@ -4,6 +4,7 @@
 #include<assert.h>
 #include<errno.h>
 #include<math.h>
+#include<string.h>
 #include"image.h"
 
 //////////////////////////////////////////
@@ -18,38 +19,7 @@
 ///////////////////////////////////////////
 //////////////// STRUCTS //////////////////
 
-struct Dimensoes {
-    int altura, largura;
-};
 
-struct PixelRGB {
-    int red, blue, green;
-};
-
-struct PixelGray {
-    int value;
-};
-
-struct ImageGray {
-    Dimensoes dim;
-    PixelGray *pixels;
-};
-
-struct ImageRGB {
-    Dimensoes dim;
-    PixelRGB *pixels;
-};
-
-enum ImageType{
-    GRAY,
-    RGB
-};
-struct History {
-    void *image;
-    ImageType type;
-    History *right;
-    History *left;
-};
 
 ///////////////////////////////////////////////////////////////
 //////////////////// Operações para ERRO //////////////////////
@@ -59,7 +29,7 @@ void check_allocation(void *pointer, const char *mensage)
 {
     if(!pointer) 
     {
-        fprintf(stderr, "Erro ao alocar memória para %s: %d - %s\n", mensage, errno, strerror(errno));
+        fprintf(stderr, "Erro ao alocar memória para %s: %d - %d\n", mensage, errno, strerror(errno));
         exit(EXIT_FAILURE);
     }
 }
@@ -373,8 +343,36 @@ void save_image_gray(ImageGray *image, FILE *arquivo)
 
 ///////////////////////////////////////////////////////////////
 //////////////// Operações para ImageGray//////////////////////
-ImageGray *flip_vertical_gray(ImageGray *image);
-ImageGray *flip_horizontal_gray(ImageGray *image);
+ImageGray *flip_vertical_gray(ImageGray *image)
+{
+    ImageGray *newImage = alocar_image_gray(image->dim.altura, image->dim.largura);
+
+    newImage->dim.altura = image->dim.altura;
+    newImage->dim.largura = image->dim.largura;
+    for (int i = 0; i < image->dim.altura; i++)
+    {
+        for (int j = 0; j < image->dim.largura; j++)
+        {
+            newImage->pixels[posicaoVetor(image->dim.largura, image->dim.altura, image->dim.largura)] = image->pixels[posicaoVetor(image->dim.largura, image->dim.altura, image->dim.largura-1-j)];
+        }
+    }
+
+    return newImage;
+}
+ImageGray *flip_horizontal_gray(ImageGray *image){
+    ImageGray *newImage = alocar_image_gray(image->dim.altura, image->dim.largura);
+
+    newImage->dim.altura = image->dim.altura;
+    newImage->dim.largura = image->dim.largura;
+    for (int i = 0; i < image->dim.altura; i++)
+    {
+        for (int j = 0; j < image->dim.largura; j++)
+        {
+            newImage->pixels[posicaoVetor(image->dim.largura, image->dim.altura, image->dim.largura)] = image->pixels[posicaoVetor(image->dim.largura, image->dim.altura-1-i, image->dim.largura)];
+        }
+    }
+    return newImage;
+}
 ImageGray *transpose_gray(const ImageGray *image)
 {
 
@@ -414,7 +412,7 @@ ImageRGB *flip_vertical_rgb(const ImageRGB *image)
 }
 ImageRGB *flip_horizontal_rgb(const ImageRGB *image)
 {
-    ImageRGB *newImage = alocar_image_gray(image->dim.altura, image->dim.largura);
+    ImageRGB *newImage = alocar_image_RGB(image->dim.altura, image->dim.largura);
 
     newImage->dim.altura = image->dim.altura;
     newImage->dim.largura = image->dim.largura;
@@ -702,7 +700,7 @@ ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size)
     int divisor = kernel_size * kernel_size;
     int soma = 0;
 
-    ImageRGB *image_blur = create_image_gray(image->dim.largura, image->dim.altura);
+    ImageRGB *image_blur = create_image_rgb(image->dim.largura, image->dim.altura);
     
     for (int i = limite; i < image->dim.largura - limite; i++)
     {
