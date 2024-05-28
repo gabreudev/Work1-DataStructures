@@ -5,6 +5,7 @@
 
 
 
+
 int main() {
     History* history = allocate_history();
     int img_type;
@@ -24,10 +25,6 @@ int main() {
     history->right = NULL;
     history->left = NULL;
     printf("passou");
- //
+ 
     fclose(file);
-    free_history(history);
-
-    return 0;
 }
-
