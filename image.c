@@ -20,7 +20,6 @@
 //////////////// STRUCTS //////////////////
 
 
-
 ///////////////////////////////////////////////////////////////
 //////////////////// Operações para ERRO //////////////////////
 
@@ -29,7 +28,7 @@ void check_allocation(void *pointer, const char *mensage)
 {
     if(!pointer) 
     {
-        fprintf(stderr, "Erro ao alocar memória para %s: %d - %d\n", mensage, errno, strerror(errno));
+        fprintf(stderr, "Erro ao alocar memória para %s: %d - %s\n", mensage, errno, strerror(errno));
         exit(EXIT_FAILURE);
     }
 }
@@ -130,22 +129,26 @@ History *allocate_history()
     return history;
 }
 
-void free_history(History *history)
+
+
+void free_history(History *history) 
 {
-    while(history != NULL) 
+    while (history != NULL) 
     {
         History *temp = history;
         history = history->right;
-
-        (history->type == RGB) ? 
-            free_image_RGB(history->image) : free_image_gray(history->image);
-
+        if (temp->type == GRAY) 
+            free_image_gray((ImageGray *)temp->image);
+        else 
+            free_image_RGB((ImageRGB *)temp->image);
+        
         free(temp);
     }
 }
 
 ///////////////////////////////////////////////////////////////
 ////////////////// Operações para Historico//////////////////////
+
 
 int verify_NULL(History *history) 
 { 
@@ -262,7 +265,7 @@ ImageRGB *read_rgb_image(FILE *arquivo)
             cont = 0;
         }
 
-        fscanf(arquivo, "%d,%d,%d", image->pixels[i].red, image->pixels[i].green, image->pixels[i].blue);
+        fscanf(arquivo, "%d,%d,%d", &image->pixels[i].red, &image->pixels[i].green, &image->pixels[i].blue);
         fgetc(arquivo);
     }
 
@@ -273,14 +276,14 @@ ImageRGB *read_rgb_image(FILE *arquivo)
 ImageGray *read_gray_image(FILE *arquivo)
 {
     ImageGray temp;
-
+    printf("passaste! ");
     fscanf(arquivo, "%d", &temp.dim.altura);
     fgetc(arquivo);
     fscanf(arquivo, "%d", &temp.dim.largura);
     fgetc(arquivo);
     
     ImageGray *image = alocar_image_gray(temp.dim.altura, temp.dim.largura);
-
+    printf("passaste! ");
     for (int i = 0, cont = 0; i < image->dim.altura * image->dim.largura; i++, cont++)
     {
         if(cont == image->dim.largura)
@@ -292,7 +295,7 @@ ImageGray *read_gray_image(FILE *arquivo)
         fscanf(arquivo, "%d,", &image->pixels[i].value);
         fgetc(arquivo);
     }
-
+    printf("passaste! ");
     return image;    
 }
 
@@ -552,7 +555,6 @@ ImageGray *median_blur_gray(const ImageGray *image, int kernel_size)
 {
     int limite = kernel_size / 2;
     int divisor = kernel_size * kernel_size;
-    int soma = 0;
 
     ImageGray *image_blur = create_image_gray(image->dim.largura, image->dim.altura);
     
@@ -698,7 +700,6 @@ ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size)
 {
     int limite = kernel_size / 2;
     int divisor = kernel_size * kernel_size;
-    int soma = 0;
 
     ImageRGB *image_blur = create_image_rgb(image->dim.largura, image->dim.altura);
     
@@ -732,6 +733,9 @@ ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size)
     
     return image_blur;
 }
+
+
+
 
 
 
