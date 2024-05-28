@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "image.h"
+#include "image.c"
 
 
 
@@ -22,9 +23,9 @@ int main() {
     else
         history->image = create_image_gray(512, 512);
 
-    history->right = NULL;
-    history->left = NULL;
-    printf("passou");
- 
-    fclose(file);
+    printf("virou");
+    ImageGray *image = read_gray_image(file);
+
+   
+
 }

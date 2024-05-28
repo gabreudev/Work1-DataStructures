@@ -282,7 +282,7 @@ ImageGray *read_gray_image(FILE *arquivo)
     fscanf(arquivo, "%d", &temp.dim.largura);
     fgetc(arquivo);
     
-    ImageGray *image = alocar_image_gray(temp.dim.altura, temp.dim.largura);
+    ImageGray *image = create_image_gray(temp.dim.altura, temp.dim.largura);
     printf("passaste! ");
     for (int i = 0, cont = 0; i < image->dim.altura * image->dim.largura; i++, cont++)
     {
@@ -292,7 +292,7 @@ ImageGray *read_gray_image(FILE *arquivo)
             cont = 0;
         }
 
-        fscanf(arquivo, "%d,", &image->pixels[i].value);
+        fscanf(arquivo, "%d", &image->pixels[i].value);
         fgetc(arquivo);
     }
     printf("passaste! ");
