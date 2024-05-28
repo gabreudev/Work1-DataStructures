@@ -24,7 +24,7 @@ int main() {
     history->right = NULL;
     history->left = NULL;
     printf("passou");
-
+ //
     fclose(file);
     free_history(history);
 
