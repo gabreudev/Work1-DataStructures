@@ -5,6 +5,8 @@
 
 
 
+
+
 int main() {
     History* history = allocate_history();
     int img_type;
@@ -21,13 +23,24 @@ int main() {
     else
         history->image = create_image_gray(512, 512);
 
-    history->right = NULL;
-    history->left = NULL;
-    printf("passou");
- //
+    printf("virou");
+    ImageRGB *image = read_rgb_image(file);
+
+    ////////////////GRAY/////////////////
+    // ImageGray *fliped = flip_vertical_gray(image); [OK]
+    //ImageGray *fliped = flip_horizontal_gray(image); [OK]
+    //ImageGray *fliped = transpose_gray(image); [OK]
+    /////////////////////////////////////
+    /////////////////RGB/////////////////
+    ImageRGB *fliped = flip_horizontal_rgb(image);
+    /////////////////////////////////////
+
+
+    FILE *fileOuth = open("outhput_image_example_RGB.txt", "w");
+    save_image_rgb(fliped, fileOuth);
     fclose(file);
-    free_history(history);
+    fclose(fileOuth);
 
-    return 0;
+   
+
 }
-
