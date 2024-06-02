@@ -2,45 +2,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include "image.h"
+#include "image.c"
 
 
-
-
-
-int main() {
+int main() 
+{
     History* history = allocate_history();
     int img_type;
 
 
     FILE *file = open("utils/input_image_example_Gray.txt", "r");
 
-    printf("Escolha o tipo de imagem:\n1. Grayscale\n2. RGB\n");
-    scanf("%d", &img_type);
-    history->type = img_type;
+    history->type = GRAY;
+    history->image = read_gray_image(file);
 
-    if(img_type - 1 == RGB) 
-        history->image = create_image_rgb(512, 512); 
-    else
-        history->image = create_image_gray(512, 512);
+    ImageGray *teste = clahe_gray(history->image, 64, 64);
 
-    printf("virou");
-    ImageRGB *image = read_rgb_image(file);
-
-    ////////////////GRAY/////////////////
-    // ImageGray *fliped = flip_vertical_gray(image); [OK]
-    //ImageGray *fliped = flip_horizontal_gray(image); [OK]
-    //ImageGray *fliped = transpose_gray(image); [OK]
-    /////////////////////////////////////
-    /////////////////RGB/////////////////
-    ImageRGB *fliped = flip_horizontal_rgb(image);
-    /////////////////////////////////////
-
-
-    FILE *fileOuth = open("outhput_image_example_RGB.txt", "w");
-    save_image_rgb(fliped, fileOuth);
-    fclose(file);
-    fclose(fileOuth);
-
-   
-
+    FILE *saida = open("LENA_EQUALIZADA.txt", "w");
+    save_image_gray(teste, saida);
+    fclose(saida);
 }

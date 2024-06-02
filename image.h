@@ -97,7 +97,7 @@ int *cumulative_histogram(int *histogram);
 void histogram_tile_gray(const ImageGray *image, int *histogram, int x1, int x2, int tile_width, int tile_height);
 
 // Recebe o CDF e calcula o novo valor do pixel para a imagem
-void histogram_equalizer_gray(ImageGray *image, int *CDF, int tile_width, int tile_height, int tile_increasew, int tile_increaseh);
+void histogram_equalizer_gray(const ImageGray *image,  ImageGray *equalize, int *CDF, int tile_width, int tile_height, int tile_increasew, int tile_increaseh);
 
 // Aplica o clahe, retornando a imagem equalizada 
 ImageGray *clahe_gray(const ImageGray *image, int tile_width, int tile_height);
