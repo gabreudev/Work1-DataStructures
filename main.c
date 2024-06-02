@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "image.h"
-#include "image.c"
+
 
 
 
@@ -24,7 +24,22 @@ int main() {
         history->image = create_image_gray(512, 512);
 
     printf("virou");
-    ImageGray *image = read_gray_image(file);
+    ImageRGB *image = read_rgb_image(file);
+
+    ////////////////GRAY/////////////////
+    // ImageGray *fliped = flip_vertical_gray(image); [OK]
+    //ImageGray *fliped = flip_horizontal_gray(image); [OK]
+    //ImageGray *fliped = transpose_gray(image); [OK]
+    /////////////////////////////////////
+    /////////////////RGB/////////////////
+    ImageRGB *fliped = flip_horizontal_rgb(image);
+    /////////////////////////////////////
+
+
+    FILE *fileOuth = open("outhput_image_example_RGB.txt", "w");
+    save_image_rgb(fliped, fileOuth);
+    fclose(file);
+    fclose(fileOuth);
 
    
 

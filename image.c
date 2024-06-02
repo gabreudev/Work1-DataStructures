@@ -34,21 +34,10 @@ void check_allocation(void *pointer, const char *mensage)
 }
 
 // "Converte" posição de matriz para posição de vetor
-int posicaoVetor(int largura, int i, int j) { return largura * i + j; }
-
+int posicaoVetor(int largura, int i, int j){return largura * i + j;}
 ///////////////////////////////////////////////////////////////
 //////////////////// Operações para alocação //////////////////
 
-ImageGray *alocar_image_gray(int largura, int altura)
-{
-    ImageGray *image = (ImageGray *)malloc(sizeof(ImageGray));
-    check_allocation(image, "imageGray");
-
-    image->dim.largura = largura;
-    image->dim.altura = altura;
-
-    return image;
-}
 
 PixelGray *alocar_pixel_gray(int largura, int altura)
 {
@@ -57,11 +46,11 @@ PixelGray *alocar_pixel_gray(int largura, int altura)
 
     return pixel;
 }
-
-ImageRGB *alocar_image_RGB(int largura, int altura)
+ImageGray *alocar_image_gray(int largura, int altura)
 {
-    ImageRGB *image = (ImageRGB *)malloc(sizeof(ImageRGB));
-    check_allocation(image, "imageRGB");
+    ImageGray *image = (ImageGray *)malloc(sizeof(ImageGray));
+    image->pixels = alocar_pixel_gray(largura, altura);
+    check_allocation(image, "imageGray");
 
     image->dim.largura = largura;
     image->dim.altura = altura;
@@ -76,6 +65,20 @@ PixelRGB *alocar_pixel_RGB(int largura, int altura)
 
     return pixel;
 }
+
+ImageRGB *alocar_image_RGB(int largura, int altura)
+{
+    ImageRGB *image = (ImageRGB *)malloc(sizeof(ImageRGB));
+    image->pixels = alocar_pixel_RGB(largura, altura);
+
+    check_allocation(image, "imageRGB");
+
+    image->dim.largura = largura;
+    image->dim.altura = altura;
+
+    return image;
+}
+
 
 // Funções de criação e liberação
 ImageGray *create_image_gray(int largura, int altura) 
@@ -352,48 +355,50 @@ ImageGray *flip_vertical_gray(ImageGray *image)
 
     newImage->dim.altura = image->dim.altura;
     newImage->dim.largura = image->dim.largura;
+
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(image->dim.largura, image->dim.altura, image->dim.largura)] = image->pixels[posicaoVetor(image->dim.largura, image->dim.altura, image->dim.largura-1-j)];
+            newImage->pixels[posicaoVetor(image->dim.largura, i, j)] = image->pixels[posicaoVetor(image->dim.largura, image->dim.altura - 1 - i, j)];
         }
     }
 
     return newImage;
 }
+
+
+
 ImageGray *flip_horizontal_gray(ImageGray *image){
     ImageGray *newImage = alocar_image_gray(image->dim.altura, image->dim.largura);
-
     newImage->dim.altura = image->dim.altura;
     newImage->dim.largura = image->dim.largura;
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(image->dim.largura, image->dim.altura, image->dim.largura)] = image->pixels[posicaoVetor(image->dim.largura, image->dim.altura-1-i, image->dim.largura)];
+            newImage->pixels[posicaoVetor(newImage->dim.largura, i, j)] = image->pixels[posicaoVetor(image->dim.largura, i, image->dim.largura-1-j)];
         }
     }
     return newImage;
 }
+
 ImageGray *transpose_gray(const ImageGray *image)
 {
-
-    ImageGray *newImage = alocar_image_gray(image->dim.altura, image->dim.largura);
+    ImageGray *newImage = alocar_image_gray(image->dim.largura, image->dim.altura);
     newImage->dim.altura = image->dim.largura;
     newImage->dim.largura = image->dim.altura;
-
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(newImage->dim.altura, newImage->dim.largura, newImage->dim.altura)] = image->pixels[posicaoVetor(image->dim.largura, image->dim.altura, image->dim.largura)];  
+            newImage->pixels[posicaoVetor(newImage->dim.largura, j, i)] = image->pixels[posicaoVetor(image->dim.largura, i, j)];
         }
-
     }
 
     return newImage;
 }
+
 
 //////////////////////////////////////////////////////////////////
 /////////////// Operações para ImageRGB //////////////////////////
@@ -416,14 +421,13 @@ ImageRGB *flip_vertical_rgb(const ImageRGB *image)
 ImageRGB *flip_horizontal_rgb(const ImageRGB *image)
 {
     ImageRGB *newImage = alocar_image_RGB(image->dim.altura, image->dim.largura);
-
     newImage->dim.altura = image->dim.altura;
     newImage->dim.largura = image->dim.largura;
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(image->dim.largura, image->dim.altura, image->dim.largura)] = image->pixels[posicaoVetor(image->dim.largura, image->dim.altura-1-i, image->dim.largura)];
+            newImage->pixels[posicaoVetor(newImage->dim.largura, i, j)] = image->pixels[posicaoVetor(image->dim.largura, i, image->dim.largura-1-j)];
         }
     }
     return newImage;
@@ -432,14 +436,12 @@ ImageRGB *flip_horizontal_rgb(const ImageRGB *image)
 ImageRGB *transpose_rgb(const ImageRGB *image)
 {
     ImageRGB *newImage = alocar_image_RGB(image->dim.altura, image->dim.largura);
-    newImage->dim.altura = image->dim.largura;
-    newImage->dim.largura = image->dim.altura;
 
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(newImage->dim.altura, newImage->dim.largura, newImage->dim.altura)] = image->pixels[posicaoVetor(image->dim.largura, image->dim.altura, image->dim.largura)];
+            newImage->pixels[posicaoVetor(newImage->dim.largura, j, i)] = image->pixels[posicaoVetor(image->dim.largura, i, j)];
         }
     }
 
