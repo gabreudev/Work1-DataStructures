@@ -10,14 +10,16 @@ int main()
 
     FILE *file = open("utils/input_image_example_RGB.txt", "r");
 
-    history->type = GRAY;
+    // history->type = GRAY;
+    history->type = RGB;
     history->image = read_rgb_image(file);
 
     ImageRGB *teste = flip_horizontal_rgb(history->image);
-    // ImageRGB *teste = median_blur_RGB(history->image, 12);
 
-    FILE *saida = open("LENA_EQUALIZADA.txt", "w");
-    // FILE *saida = open("LENA_BLUR.txt", "w");
-    save_image_rgb(teste, saida);
+
+    // FILE *saida = open("LENA_EQUALIZADA.txt", "w");
+    FILE *saida = open("LENA_TESTE.txt", "w");
+    save_image_rgb(history->image, saida);
     fclose(saida);
+    free_history(history);
 }

@@ -55,4 +55,7 @@ def image_rgb_from_txt(txt_path, output_path):
 
 # image_gray_from_txt("Work1-DataStructures/LENA_EQUALIZADA.txt", "saida.png")
 # image_rgb_from_txt("Work1-DataStructures/LENA_BLUR.txt", "saida_rgb.png")
-image_rgb_from_txt("LENA_EQUALIZADA.txt", "saida_rgb.png")
+
+# image_rgb_from_txt("Work1-DataStructures/LENA_EQUALIZADA.txt", "saida_rgb.png")
+image_rgb_from_txt("Work1-DataStructures/LENA_TESTE.txt", "saida_rgb.png")
+
