@@ -258,7 +258,7 @@ ImageRGB *read_rgb_image(FILE *arquivo)
     fscanf(arquivo, "%d", &temp.dim.largura);
     fgetc(arquivo);
     
-    ImageRGB *image = alocar_image_RGB(temp.dim.altura, temp.dim.largura);
+    ImageRGB *image = create_image_rgb(temp.dim.altura, temp.dim.largura);
 
     for (int i = 0, cont = 0; i < image->dim.altura * image->dim.largura; i++, cont++)
     {
@@ -268,7 +268,7 @@ ImageRGB *read_rgb_image(FILE *arquivo)
             cont = 0;
         }
 
-        fscanf(arquivo, "%d,%d,%d", &image->pixels[i].red, &image->pixels[i].green, &image->pixels[i].blue);
+        fscanf(arquivo, "%d %d %d,", &image->pixels[i].red, &image->pixels[i].green, &image->pixels[i].blue);
         fgetc(arquivo);
     }
 
@@ -279,14 +279,14 @@ ImageRGB *read_rgb_image(FILE *arquivo)
 ImageGray *read_gray_image(FILE *arquivo)
 {
     ImageGray temp;
-    printf("passaste! ");
+    
     fscanf(arquivo, "%d", &temp.dim.altura);
     fgetc(arquivo);
     fscanf(arquivo, "%d", &temp.dim.largura);
     fgetc(arquivo);
     
     ImageGray *image = create_image_gray(temp.dim.altura, temp.dim.largura);
-    printf("passaste! ");
+    
     for (int i = 0, cont = 0; i < image->dim.altura * image->dim.largura; i++, cont++)
     {
         if(cont == image->dim.largura)
@@ -298,7 +298,7 @@ ImageGray *read_gray_image(FILE *arquivo)
         fscanf(arquivo, "%d", &image->pixels[i].value);
         fgetc(arquivo);
     }
-    printf("passaste! ");
+    
     return image;    
 }
 
@@ -320,7 +320,7 @@ void save_image_rgb(ImageRGB *image, FILE *arquivo)
             cont = 0;
         }
 
-        fprintf(arquivo, "%d %d %d", image->pixels[i].red, image->pixels[i].green, image->pixels[i].blue);
+        fprintf(arquivo, "%d %d %d,", image->pixels[i].red, image->pixels[i].green, image->pixels[i].blue);
     }
 }
 
@@ -491,7 +491,7 @@ void histogram_tile_gray(const ImageGray *image, int *histogram, int x1, int x2,
 }
 
 // Recebe o CDF e calcula o novo valor do pixel para a imagem
-void histogram_equalizer_gray(ImageGray *image, int *CDF, int tile_width, int tile_height, int tile_increasew, int tile_increaseh)
+void histogram_equalizer_gray(const ImageGray *image,  ImageGray *equalize, int *CDF, int tile_width, int tile_height, int tile_increasew, int tile_increaseh)
 {
     int cdf_min = min_cdf(CDF);
 
@@ -502,7 +502,7 @@ void histogram_equalizer_gray(ImageGray *image, int *CDF, int tile_width, int ti
             int index = posicaoVetor(image->dim.largura, x + tile_increaseh, y + tile_increasew);
             int pixel_value = image->pixels[index].value;
             int new_value = round(((float)(CDF[pixel_value] - cdf_min) / (tile_width * tile_height - cdf_min)) * (NIVEL_INTENSIDADE - 1));
-            image->pixels[index].value = new_value;
+            equalize->pixels[index].value = new_value;
         }
     }
 }
@@ -520,7 +520,7 @@ ImageGray *clahe_gray(const ImageGray *image, int tile_width, int tile_height)
 
             histogram_tile_gray(image, histogram, x1, x2, tile_width, tile_height);
             int *CDF = cumulative_histogram(histogram);
-            histogram_equalizer_gray(equalized_image, CDF, tile_width, tile_height, x1, x2);
+            histogram_equalizer_gray(image, equalized_image, CDF, tile_width, tile_height, x1, x2);
 
             free(CDF);
         }
@@ -624,7 +624,7 @@ void histogram_tile_rgb(const ImageRGB *image, PixelRGB *histogram, int x1, int 
 }
 
 // RGB: Recebe o CDF e calcula o novo valor do pixel para a imagem
-void equalize_tile_rgb(ImageRGB *image, PixelRGB *CDF, int tile_width, int tile_height, int tile_increasew, int tile_increaseh) 
+void equalize_tile_rgb(const ImageRGB *image, ImageRGB *equalized,PixelRGB *CDF, int tile_width, int tile_height, int tile_increasew, int tile_increaseh) 
 {
     int cdf_min_r = min_cdf(&CDF[0].red);
     int cdf_min_g = min_cdf(&CDF[0].green);
@@ -640,9 +640,9 @@ void equalize_tile_rgb(ImageRGB *image, PixelRGB *CDF, int tile_width, int tile_
             int pixel_value_g = image->pixels[index].green;
             int pixel_value_b = image->pixels[index].blue;
 
-            image->pixels[index].red = round(((float)(CDF[pixel_value_r].red - cdf_min_r) / (tile_width * tile_height - cdf_min_r)) * (NIVEL_INTENSIDADE - 1));
-            image->pixels[index].green = round(((float)(CDF[pixel_value_g].green - cdf_min_g) / (tile_width * tile_height - cdf_min_g)) * (NIVEL_INTENSIDADE - 1));
-            image->pixels[index].blue = round(((float)(CDF[pixel_value_b].blue - cdf_min_b) / (tile_width * tile_height - cdf_min_b)) * (NIVEL_INTENSIDADE - 1));
+            equalized->pixels[index].red = round(((float)(CDF[pixel_value_r].red - cdf_min_r) / (tile_width * tile_height - cdf_min_r)) * (NIVEL_INTENSIDADE - 1));
+            equalized->pixels[index].green = round(((float)(CDF[pixel_value_g].green - cdf_min_g) / (tile_width * tile_height - cdf_min_g)) * (NIVEL_INTENSIDADE - 1));
+            equalized->pixels[index].blue = round(((float)(CDF[pixel_value_b].blue - cdf_min_b) / (tile_width * tile_height - cdf_min_b)) * (NIVEL_INTENSIDADE - 1));
         }
     }
 }
@@ -660,7 +660,7 @@ ImageRGB *clahe_rgb(const ImageRGB *image, int tile_width, int tile_height)
 
             histogram_tile_rgb(image, histogram, x1, x2, tile_width, tile_height);
             PixelRGB *CDF = cumulative_histogram_rgb(histogram);
-            equalize_tile_rgb(equalized_image, CDF, tile_width, tile_height, x1, x2);
+            equalize_tile_rgb(image, equalized_image, CDF, tile_width, tile_height, x1, x2);
 
             free(CDF);
         }
