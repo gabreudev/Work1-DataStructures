@@ -116,7 +116,7 @@ PixelRGB *cumulative_histogram_rgb(PixelRGB *histogram);
 void histogram_tile_rgb(const ImageRGB *image, PixelRGB *histogram, int x1, int x2, int tile_width, int tile_height);
 
 // RGB: Recebe o CDF e calcula o novo valor do pixel para a imagem
-void equalize_tile_rgb(ImageRGB *image, PixelRGB *CDF, int tile_width, int tile_height, int tile_increasew, int tile_increaseh);
+void equalize_tile_rgb(const ImageRGB *image, ImageRGB *equalized,PixelRGB *CDF, int tile_width, int tile_height, int tile_increasew, int tile_increaseh);
 
 // RGB: Aplica o clahe, retornando a imagem equalizada 
 ImageRGB *clahe_rgb(const ImageRGB *image, int tile_width, int tile_height);

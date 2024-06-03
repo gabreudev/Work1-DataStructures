@@ -53,5 +53,6 @@ def image_rgb_from_txt(txt_path, output_path):
         # Salva a imagem resultante
         nova_imagem.save(output_path)
 
-image_gray_from_txt("Work1-DataStructures/LENA_EQUALIZADA.txt", "saida.png")
-# image_rgb_from_txt("outhput_image_example_RGB.txt", "saida.png")
+# image_gray_from_txt("Work1-DataStructures/LENA_EQUALIZADA.txt", "saida.png")
+# image_rgb_from_txt("Work1-DataStructures/LENA_BLUR.txt", "saida_rgb.png")
+image_rgb_from_txt("Work1-DataStructures/LENA_EQUALIZADA.txt", "saida_rgb.png")

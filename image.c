@@ -258,7 +258,7 @@ ImageRGB *read_rgb_image(FILE *arquivo)
     fscanf(arquivo, "%d", &temp.dim.largura);
     fgetc(arquivo);
     
-    ImageRGB *image = alocar_image_RGB(temp.dim.altura, temp.dim.largura);
+    ImageRGB *image = create_image_rgb(temp.dim.altura, temp.dim.largura);
 
     for (int i = 0, cont = 0; i < image->dim.altura * image->dim.largura; i++, cont++)
     {
@@ -268,7 +268,7 @@ ImageRGB *read_rgb_image(FILE *arquivo)
             cont = 0;
         }
 
-        fscanf(arquivo, "%d,%d,%d", &image->pixels[i].red, &image->pixels[i].green, &image->pixels[i].blue);
+        fscanf(arquivo, "%d %d %d,", &image->pixels[i].red, &image->pixels[i].green, &image->pixels[i].blue);
         fgetc(arquivo);
     }
 
@@ -320,7 +320,7 @@ void save_image_rgb(ImageRGB *image, FILE *arquivo)
             cont = 0;
         }
 
-        fprintf(arquivo, "%d %d %d", image->pixels[i].red, image->pixels[i].green, image->pixels[i].blue);
+        fprintf(arquivo, "%d %d %d,", image->pixels[i].red, image->pixels[i].green, image->pixels[i].blue);
     }
 }
 
