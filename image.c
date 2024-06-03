@@ -269,7 +269,6 @@ ImageRGB *read_rgb_image(FILE *arquivo)
         }
 
         fscanf(arquivo, "%d %d %d,", &image->pixels[i].red, &image->pixels[i].green, &image->pixels[i].blue);
-        fgetc(arquivo);
     }
 
     return image;    
