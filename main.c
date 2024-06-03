@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "image.h"
-#include "image.c"
 
 
 int main() 
@@ -15,8 +14,7 @@ int main()
     history->type = RGB;
     history->image = read_rgb_image(file);
 
-    // ImageRGB *teste = clahe_rgb(history->image, 64, 64);
-    // ImageRGB *teste = median_blur_RGB(history->image, 12);
+    ImageRGB *teste = flip_horizontal_rgb(history->image);
 
 
     // FILE *saida = open("LENA_EQUALIZADA.txt", "w");
