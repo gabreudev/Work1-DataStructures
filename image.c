@@ -205,6 +205,15 @@ History *next_image(History *history)
 
     return history->right;
 }
+// dunção para avancar para a proxima imagem da lista randômica
+RandomList *next_random_image(RandomList *history)
+{
+    if(!history || !history->right)
+        return history;
+
+    return history->right;
+}
+
 
 // função de navegação pelo histórico, permitindo ir para versões específicas da imagem.
 History *browse_history(History *history, int version)
@@ -734,9 +743,73 @@ ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size)
     
     return image_blur;
 }
+RandomList *random_efects(History *history){    
+    srand(time(NULL));
+    RandomList *randomList;
+    randomList->image = history->image;
+    RandomList *aux = randomList;
+    if (history->type==GRAY)
+        {
+            
+            for (int i = 0; i < 5; i++)
+            {
+                int chosed = rand() % 5;
 
+                switch (chosed)
+                {
+                case 0:
+                    aux->right->image = flip_horizontal_gray(aux->image);
+                    break;
+                case 1:
+                    aux->right->image = flip_vertical_gray(aux->image);
+                    break;
+                case 2:
+                    aux->right->image = transpose_gray(aux->image);
+                    break;
+                case 3:
+                    aux->right->image = median_blur_gray(aux->image, 50);
+                    break;
+                case 4:
+                    aux->right->image = clahe_gray(aux->image, 90,90);
+                    break;
 
+                aux=aux->right;
+                
+                }
+            }
+            return randomList;
+        }
 
+            
+            for (int i = 0; i < 5; i++)
+            {
+                int indice_sorteado = rand() % 5;
+
+                switch (indice_sorteado)
+                {
+                case 0:
+                    aux->right->image = flip_horizontal_rgb(aux->image);
+                    break;
+                case 1:
+                    aux->right->image = flip_vertical_rgb(aux->image);
+                    break;
+                case 2:
+                    aux->right->image = transpose_rgb(aux->image);
+                    break;
+                case 3:
+                    aux->right->image = median_blur_RGB(aux->image, 50);
+                    break;
+                case 4:
+                    aux->right->image = clahe_rgb(aux->image, 90,90);
+                    break;
+                
+                aux=aux->right;
+
+                }
+                return randomList;
+            }
+                
+        }
 
 
 
