@@ -783,9 +783,9 @@ RandomList *random_efects(History *history, int width, int height){
             
             for (int i = 0; i < 5; i++)
             {
-                int indice_sorteado = rand() % 5;
+                int chosed = rand() % 5;
 
-                switch (indice_sorteado)
+                switch (chosed)
                 {
                 case 0:
                     aux->right->image = flip_horizontal_rgb(aux->image);
