@@ -743,7 +743,7 @@ ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size)
     
     return image_blur;
 }
-RandomList *random_efects(History *history){    
+RandomList *random_efects(History *history, int width, int height){    
     srand(time(NULL));
     RandomList *randomList;
     randomList->image = history->image;
@@ -767,10 +767,10 @@ RandomList *random_efects(History *history){
                     aux->right->image = transpose_gray(aux->image);
                     break;
                 case 3:
-                    aux->right->image = median_blur_gray(aux->image, 50);
+                    aux->right->image = median_blur_gray(aux->image, 8);
                     break;
                 case 4:
-                    aux->right->image = clahe_gray(aux->image, 90,90);
+                    aux->right->image = clahe_gray(aux->image,width, height);
                     break;
 
                 aux=aux->right;
@@ -797,10 +797,10 @@ RandomList *random_efects(History *history){
                     aux->right->image = transpose_rgb(aux->image);
                     break;
                 case 3:
-                    aux->right->image = median_blur_RGB(aux->image, 50);
+                    aux->right->image = median_blur_RGB(aux->image, 8);
                     break;
                 case 4:
-                    aux->right->image = clahe_rgb(aux->image, 90,90);
+                    aux->right->image = clahe_rgb(aux->image,width, height);
                     break;
                 
                 aux=aux->right;
