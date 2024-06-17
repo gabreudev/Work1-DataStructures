@@ -36,6 +36,12 @@ typedef struct history {
     struct history *left;  
 } History;
 
+typedef struct randomList {
+    void *image;
+    ImageType type;
+    struct randomList *right;   
+} RandomList;
+
 
 // Operações de ERRO
 void check_allocation(void *pointer, const char *mensage);
