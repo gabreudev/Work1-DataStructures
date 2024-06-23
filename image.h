@@ -1,5 +1,12 @@
 #ifndef IMAGE_H
 #define IMAGE_H
+
+#define NIVEL_INTENSIDADE 256
+#define KEEP 1
+#define DELETE 0
+#define TXT_PATH "load.txt"
+#define NUM_PROCESSES  9
+
 typedef struct dimensoes {
     int altura, largura;
 } Dimensoes;
@@ -24,21 +31,55 @@ typedef struct imageRGB {
 
 
 typedef enum imageType {
-    GRAY,
-    RGB
+    GRAY_,
+    RGB_
 } ImageType;
+
+typedef enum {
+    NONE = 0,
+    BLUR,
+    EQUALIZER,
+    VERTICAL,
+    HORIZONTAL,
+    TRANSPOSE,
+    UNDO,
+    NEXT,
+    PREVIOUS
+} ImageProcess;
+
+static const char *processText[] = {
+    "NO PROCESSING",
+    "BLUR",
+    "EQUALIZER",
+    "VERTICAL",
+    "HORIZONTAL",
+    "TRANSPOSE",
+    "UNDO",
+    "NEXT >",
+    "< PREVIOUS"
+};
 
 
 typedef struct history {
-    void *image;
     ImageType type;
+    ImageGray *gray_image;
+    ImageRGB *rgb_image;
     struct history *right; 
     struct history *left;  
 } History;
 
+typedef struct randomList {
+    void *image;
+    ImageType type;
+    struct randomList *right;   
+} RandomList;
+
+
 
 // Operações de ERRO
 void check_allocation(void *pointer, const char *mensage);
+
+int vector_position(int largura, int i, int j);
 
 // Funções de criação e liberação
 ImageGray *create_image_gray(int largura, int altura);
@@ -53,8 +94,10 @@ History *allocate_history();
 void free_history(History *history);
 
 //////////////////////
-int verify_NULL(History *history);
 
+// função pra adicionar um novo node, ela vai receber o historico e uma imagem, 
+// convertendo automaticamente dependendo do tipo de historico 
+History *add_image(History *history, void *image);
 History *back_image(History *history, int mode);
  // função de refazer operações, avançando para a próxima imagem, se possível.
 History *next_image(History *history);
@@ -63,7 +106,7 @@ History *browse_history(History *history, int version);
 
 
 ////// Operações de arquivos /////////
-FILE *open(char *name, char *operation);
+// FILE *open_file(char *name, char *operation);
 
 // Ler txt e converter em imagem -> Image
 ImageRGB *read_rgb_image(FILE *arquivo);
@@ -120,6 +163,12 @@ void equalize_tile_rgb(const ImageRGB *image, ImageRGB *equalized,PixelRGB *CDF,
 
 // RGB: Aplica o clahe, retornando a imagem equalizada 
 ImageRGB *clahe_rgb(const ImageRGB *image, int tile_width, int tile_height);
+
+// compara o pixeis para usar o qsort
+int compare_pixel(const void *a, const void *b);
+
+// ordenar os pixeis usando qsort
+PixelRGB *sort_pixel(PixelRGB *pixel, int ind);
 
 // RGB: Calcula a soma dos tiles ao redor do central
 PixelRGB *soma_kernel_RGB(const ImageRGB *image, int index_i, int index_j, int kernel);

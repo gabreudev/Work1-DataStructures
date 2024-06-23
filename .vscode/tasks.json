@@ -7,10 +7,12 @@
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
+                "-pthread",
                 "${file}",
-                "-lm",
                 "-o",
-                "${fileDirname}/${fileBasenameNoExtension}"
+                "${fileDirname}/${fileBasenameNoExtension}",
+                "-lm",
+                // "${`pkg-config --cflags --libs gtk+-3.0`}"
             ],
             "options": {
                 "cwd": "${fileDirname}"

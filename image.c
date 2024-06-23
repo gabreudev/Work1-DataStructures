@@ -4,21 +4,12 @@
 #include<assert.h>
 #include<errno.h>
 #include<math.h>
+#include<time.h>
 #include<string.h>
+#include<stdlib.h>
+#include<Python.h>
+#include<raylib.h>
 #include"image.h"
-
-//////////////////////////////////////////
-////////////// DEFINES //////////////////
-
-#define NIVEL_INTENSIDADE 256
-#define TRUE 1
-#define FALSE 0
-#define KEEP 1
-#define DELETE 0
-
-///////////////////////////////////////////
-//////////////// STRUCTS //////////////////
-
 
 ///////////////////////////////////////////////////////////////
 //////////////////// Operações para ERRO //////////////////////
@@ -34,10 +25,9 @@ void check_allocation(void *pointer, const char *mensage)
 }
 
 // "Converte" posição de matriz para posição de vetor
-int posicaoVetor(int largura, int i, int j){return largura * i + j;}
+int vector_position(int largura, int i, int j) {return largura * i + j;}
 ///////////////////////////////////////////////////////////////
 //////////////////// Operações para alocação //////////////////
-
 
 PixelGray *alocar_pixel_gray(int largura, int altura)
 {
@@ -46,6 +36,7 @@ PixelGray *alocar_pixel_gray(int largura, int altura)
 
     return pixel;
 }
+
 ImageGray *alocar_image_gray(int largura, int altura)
 {
     ImageGray *image = (ImageGray *)malloc(sizeof(ImageGray));
@@ -119,12 +110,12 @@ void free_pixel_RGB(PixelRGB *pixel)
 {
     free(pixel);
     pixel = NULL;
-}
+} 
 
-History *allocate_history()
+History *allocate_history() 
 {
     History *history = (History *)malloc(sizeof(History));
-    check_allocation(history, "historico");
+    check_allocation(history, "History");
 
     history->left = NULL;
     history->right = NULL;
@@ -132,55 +123,41 @@ History *allocate_history()
     return history;
 }
 
-
-
 void free_history(History *history) 
 {
-    while (history != NULL) 
+    if (history) 
     {
-        History *temp = history;
-        history = history->right;
-        if (temp->type == GRAY) 
-            free_image_gray((ImageGray *)temp->image);
-        else 
-            free_image_RGB((ImageRGB *)temp->image);
+        if (history->type == GRAY_ && history->gray_image) 
+            free_image_gray(history->gray_image);
+        else if (history->type == RGB_ && history->rgb_image) 
+            free_image_RGB(history->rgb_image);
         
-        free(temp);
+        free(history);
     }
 }
+
 
 ///////////////////////////////////////////////////////////////
 ////////////////// Operações para Historico//////////////////////
 
 
-int verify_NULL(History *history) 
-{ 
-    return (!history) ? TRUE : FALSE; 
-}
-
 // função de desfazer operações, removendo a imagem atual e retornando à anterior 
 // mode (1 - apaga a imagem, 0 - deixa a imagem no historico).
 History *back_image(History *history, int mode)
 {
-    if(!history || !history->right)
-        return history;
-
-    History *aux = history, *prox = history->right;
+    History *aux = history, *prox = history->right, *ret;
 
     if(mode == 1)
     {
-        while(!verify_NULL(aux))
+        while(aux)
         {
-            if(!verify_NULL(prox))
+            if(!prox)
             {
-                prox->left = NULL;
-                aux->right = NULL;
+                ret = aux->left;
+                ret->right = NULL;
+                free_history(aux);
                 
-                (prox->type == RGB) ? 
-                    free_image_RGB(prox->image) : free_image_gray(prox->image);
-
-                free(prox);
-                return aux;
+                return ret;
             }
             aux = prox;
             prox = prox->right;
@@ -188,13 +165,39 @@ History *back_image(History *history, int mode)
     }
     else
     {
-        if(!verify_NULL(aux->left))
+        if(aux->left)
             aux = aux->left;
 
         return aux;
     }
 
     return aux;
+}
+
+
+
+History *add_image(History *history, void *image) 
+{
+    // Create a new history node
+    History *new_node = allocate_history();
+    new_node->type = history->type;
+
+    if (history->type == GRAY_) 
+        new_node->gray_image = (ImageGray *)image;
+    else if (history->type == RGB_) 
+        new_node->rgb_image = (ImageRGB *)image;
+    
+    // Attach the new node to the end of the history list
+    if(history) 
+    {
+        while (history->right) 
+            history = history->right;
+        
+        history->right = new_node;
+        new_node->left = history;
+    }
+
+    return new_node;
 }
 
  // função de refazer operações, avançando para a próxima imagem, se possível.
@@ -235,18 +238,18 @@ History *browse_history(History *history, int version)
 ////////////////// Operações para Arquivo//////////////////////
 
 // Abrir arquivo nome do arquivo e tipo de operação(ler/escrever)
-FILE *open(char *name, char *operation)
-{
-    FILE *file = fopen(name, operation);
+// FILE *open_file(char *name, char *operation)
+// {
+//     FILE *file = fopen(name, operation);
 
-    if(!file)
-    {
-        fprintf(stderr, "Erro ao abrir o arquivo: %s\n", name);
-        exit(EXIT_FAILURE);
-    }
+//     if(!file)
+//     {
+//         fprintf(stderr, "Erro ao abrir o arquivo: %s\n", name);
+//         exit(EXIT_FAILURE);
+//     }
 
-    return file;
-}
+//     return file;
+// }
 
 // Ler txt e converter em imagem -> ImageRGB
 ImageRGB *read_rgb_image(FILE *arquivo)
@@ -350,7 +353,7 @@ void save_image_gray(ImageGray *image, FILE *arquivo)
 //////////////// Operações para ImageGray//////////////////////
 ImageGray *flip_vertical_gray(ImageGray *image)
 {
-    ImageGray *newImage = alocar_image_gray(image->dim.altura, image->dim.largura);
+    ImageGray *newImage = create_image_gray(image->dim.altura, image->dim.largura);
 
     newImage->dim.altura = image->dim.altura;
     newImage->dim.largura = image->dim.largura;
@@ -359,7 +362,7 @@ ImageGray *flip_vertical_gray(ImageGray *image)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(image->dim.largura, i, j)] = image->pixels[posicaoVetor(image->dim.largura, image->dim.altura - 1 - i, j)];
+            newImage->pixels[vector_position(image->dim.largura, i, j)] = image->pixels[vector_position(image->dim.largura, image->dim.altura - 1 - i, j)];
         }
     }
 
@@ -367,16 +370,15 @@ ImageGray *flip_vertical_gray(ImageGray *image)
 }
 
 
+ImageGray *flip_horizontal_gray(ImageGray *image)
+{
+    ImageGray *newImage = create_image_gray(image->dim.altura, image->dim.largura);
 
-ImageGray *flip_horizontal_gray(ImageGray *image){
-    ImageGray *newImage = alocar_image_gray(image->dim.altura, image->dim.largura);
-    newImage->dim.altura = image->dim.altura;
-    newImage->dim.largura = image->dim.largura;
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(newImage->dim.largura, i, j)] = image->pixels[posicaoVetor(image->dim.largura, i, image->dim.largura-1-j)];
+            newImage->pixels[vector_position(newImage->dim.largura, i, j)] = image->pixels[vector_position(image->dim.largura, i, image->dim.largura-1-j)];
         }
     }
     return newImage;
@@ -384,14 +386,13 @@ ImageGray *flip_horizontal_gray(ImageGray *image){
 
 ImageGray *transpose_gray(const ImageGray *image)
 {
-    ImageGray *newImage = alocar_image_gray(image->dim.largura, image->dim.altura);
-    newImage->dim.altura = image->dim.largura;
-    newImage->dim.largura = image->dim.altura;
+    ImageGray *newImage = create_image_gray(image->dim.largura, image->dim.altura);
+
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(newImage->dim.largura, j, i)] = image->pixels[posicaoVetor(image->dim.largura, i, j)];
+            newImage->pixels[vector_position(newImage->dim.largura, j, i)] = image->pixels[vector_position(image->dim.largura, i, j)];
         }
     }
 
@@ -403,44 +404,44 @@ ImageGray *transpose_gray(const ImageGray *image)
 /////////////// Operações para ImageRGB //////////////////////////
 ImageRGB *flip_vertical_rgb(const ImageRGB *image)
 {
-    ImageRGB *newImage = alocar_image_RGB(image->dim.altura, image->dim.largura);
+    ImageRGB *newImage = create_image_rgb(image->dim.altura, image->dim.largura);
 
-    newImage->dim.altura = image->dim.altura;
-    newImage->dim.largura = image->dim.largura;
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(image->dim.largura, image->dim.altura, image->dim.largura)] = image->pixels[posicaoVetor(image->dim.largura, image->dim.altura, image->dim.largura-1-j)];
+            newImage->pixels[vector_position(image->dim.largura, i, j)] = image->pixels[vector_position(image->dim.largura, image->dim.altura - 1 - i, j)];
         }
     }
 
     return newImage;
 }
+
 ImageRGB *flip_horizontal_rgb(const ImageRGB *image)
 {
-    ImageRGB *newImage = alocar_image_RGB(image->dim.altura, image->dim.largura);
-    newImage->dim.altura = image->dim.altura;
-    newImage->dim.largura = image->dim.largura;
+    ImageRGB *newImage = create_image_rgb(image->dim.altura, image->dim.largura);
+ 
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(newImage->dim.largura, i, j)] = image->pixels[posicaoVetor(image->dim.largura, i, image->dim.largura-1-j)];
+            newImage->pixels[vector_position(newImage->dim.largura, i, j)] = image->pixels[vector_position(image->dim.largura, i, image->dim.largura-1-j)];
         }
     }
+
     return newImage;
 }
+
 
 ImageRGB *transpose_rgb(const ImageRGB *image)
 {
-    ImageRGB *newImage = alocar_image_RGB(image->dim.altura, image->dim.largura);
+    ImageRGB *newImage = create_image_rgb(image->dim.altura, image->dim.largura);
 
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(newImage->dim.largura, j, i)] = image->pixels[posicaoVetor(image->dim.largura, i, j)];
+            newImage->pixels[vector_position(newImage->dim.largura, j, i)] = image->pixels[vector_position(image->dim.largura, i, j)];
         }
     }
 
@@ -477,13 +478,13 @@ int *cumulative_histogram(int *histogram)
 /////////////////////////////////////////////////
 
 // Calcula cada tile individual do histograma 
-void histogram_tile_gray(const ImageGray *image, int *histogram, int x1, int x2, int tile_width, int tile_height) 
+void histogram_tile_gray(const ImageGray *image, int *histogram, int x, int y, int tile_width, int tile_height) 
 {
-    for (int i = x1; i < x1 + tile_width && i < image->dim.largura; i++) 
+    for (int i = x; i < x + tile_width && i < image->dim.largura; i++) 
     {
-        for (int j = x2; j < x2 + tile_height && j < image->dim.altura; j++) 
+        for (int j = y; j < y + tile_height && j < image->dim.altura; j++) 
         {
-            int index = posicaoVetor(image->dim.largura, j, i);
+            int index = vector_position(image->dim.largura, j, i);
             histogram[image->pixels[index].value]++;
         }
     }
@@ -498,7 +499,7 @@ void histogram_equalizer_gray(const ImageGray *image,  ImageGray *equalize, int 
     {
         for (int y = 0; y < tile_width; y++) 
         {
-            int index = posicaoVetor(image->dim.largura, x + tile_increaseh, y + tile_increasew);
+            int index = vector_position(image->dim.largura, x + tile_increaseh, y + tile_increasew);
             int pixel_value = image->pixels[index].value;
             int new_value = round(((float)(CDF[pixel_value] - cdf_min) / (tile_width * tile_height - cdf_min)) * (NIVEL_INTENSIDADE - 1));
             equalize->pixels[index].value = new_value;
@@ -511,15 +512,15 @@ ImageGray *clahe_gray(const ImageGray *image, int tile_width, int tile_height)
 {
     ImageGray *equalized_image = create_image_gray(image->dim.largura, image->dim.altura);
 
-    for (int x1 = 0; x1 < image->dim.largura; x1 += tile_width) 
+    for (int x = 0; x < image->dim.largura; x += tile_width) 
     {
-        for (int x2 = 0; x2 < image->dim.altura; x2 += tile_height) 
+        for (int y = 0; y < image->dim.altura; y += tile_height) 
         {
             int histogram[NIVEL_INTENSIDADE] = {0};
 
-            histogram_tile_gray(image, histogram, x1, x2, tile_width, tile_height);
+            histogram_tile_gray(image, histogram, x, y, tile_width, tile_height);
             int *CDF = cumulative_histogram(histogram);
-            histogram_equalizer_gray(image, equalized_image, CDF, tile_width, tile_height, x1, x2);
+            histogram_equalizer_gray(image, equalized_image, CDF, tile_width, tile_height, x, y);
 
             free(CDF);
         }
@@ -528,18 +529,25 @@ ImageGray *clahe_gray(const ImageGray *image, int tile_width, int tile_height)
     return equalized_image;
 }
 
+
 // Calcula a soma dos tiles ao redor do central
 int soma_kernel_gray(const ImageGray *image, int index_i, int index_j, int kernel)
 {
-    int lin = index_i, col = index_j, soma = 0;
+    int lin = index_i, col = index_j, ind = 0;
+
+    int sum = 0;
 
     for(int i = 0; i < kernel; i++)
     {
         for(int j = 0; j < kernel; j++)
         {
-            int index = posicaoVetor(image->dim.largura, lin, col);
+            int index = vector_position(image->dim.largura, lin, col);
 
-            soma += image->pixels[index].value;
+            if(lin >= 0 && col >= 0)
+            {
+                sum += image->pixels[index].value;
+                ind += 1;
+            }
 
             if(i % 2 == 1) 
                 (j < i) ? col++ : lin++;
@@ -548,41 +556,29 @@ int soma_kernel_gray(const ImageGray *image, int index_i, int index_j, int kerne
         }
     }
 
-    return soma;
+    int result = sum / ind;
+
+    return result;
 }
 
 ImageGray *median_blur_gray(const ImageGray *image, int kernel_size)
 {
-    int limite = kernel_size / 2;
-    int divisor = kernel_size * kernel_size;
-
     ImageGray *image_blur = create_image_gray(image->dim.largura, image->dim.altura);
     
-    for (int i = limite; i < image->dim.largura - limite; i++)
-    {
-        for(int j = limite; j < image->dim.altura - limite; j++)
-        {
-            int soma = soma_kernel_gray(image, i, j, kernel_size);
-            int new_pixel = soma / divisor;
-            
-            image_blur->pixels[posicaoVetor(image_blur->dim.largura, i, j)].value = new_pixel;
-        }
-    }
-
     for (int i = 0; i < image->dim.largura; i++)
     {
         for(int j = 0; j < image->dim.altura; j++)
         {
-            if (i < limite || i >= image->dim.altura - limite || j < limite || j >= image->dim.largura - limite) 
-            {
-                int index = posicaoVetor(image->dim.largura, i, j);
-                image_blur->pixels[index].value = image->pixels[index].value;
-            }
+            int new_pixel = soma_kernel_gray(image, i, j, kernel_size);
+            
+            image_blur->pixels[vector_position(image_blur->dim.largura, i, j)].value = new_pixel;
         }
     }
-    
+
     return image_blur;
 }
+
+
 
 /////////////////////////////////////////////////////////////
 ///////// Manipulação por pixel para ImageRGB///////////////
@@ -614,7 +610,7 @@ void histogram_tile_rgb(const ImageRGB *image, PixelRGB *histogram, int x1, int 
     {
         for (int j = x2; j < x2 + tile_height && j < image->dim.altura; j++) 
         {
-            int index = posicaoVetor(image->dim.largura, j, i);
+            int index = vector_position(image->dim.largura, j, i);
             histogram[image->pixels[index].red].red++;
             histogram[image->pixels[index].green].green++;
             histogram[image->pixels[index].blue].blue++;
@@ -623,7 +619,7 @@ void histogram_tile_rgb(const ImageRGB *image, PixelRGB *histogram, int x1, int 
 }
 
 // RGB: Recebe o CDF e calcula o novo valor do pixel para a imagem
-void equalize_tile_rgb(const ImageRGB *image, ImageRGB *equalized,PixelRGB *CDF, int tile_width, int tile_height, int tile_increasew, int tile_increaseh) 
+void equalize_tile_rgb(const ImageRGB *image, ImageRGB *equalized, PixelRGB *CDF, int tile_width, int tile_height, int tile_increasew, int tile_increaseh) 
 {
     int cdf_min_r = min_cdf(&CDF[0].red);
     int cdf_min_g = min_cdf(&CDF[0].green);
@@ -633,7 +629,7 @@ void equalize_tile_rgb(const ImageRGB *image, ImageRGB *equalized,PixelRGB *CDF,
     {
         for (int y = 0; y < tile_width; y++) 
         {
-            int index = posicaoVetor(image->dim.largura, x + tile_increaseh, y + tile_increasew);
+            int index = vector_position(image->dim.largura, x + tile_increaseh, y + tile_increasew);
 
             int pixel_value_r = image->pixels[index].red;
             int pixel_value_g = image->pixels[index].green;
@@ -668,22 +664,52 @@ ImageRGB *clahe_rgb(const ImageRGB *image, int tile_width, int tile_height)
     return equalized_image;
 }
 
+int compare_pixel(const void *a, const void *b) 
+{
+    PixelRGB *pixelA = (PixelRGB *)a;
+    PixelRGB *pixelB = (PixelRGB *)b;
+    
+    int avgA = (pixelA->red + pixelA->green + pixelA->blue) / 3;
+    int avgB = (pixelB->red + pixelB->green + pixelB->blue) / 3;
+    
+    return avgA - avgB;
+}
+
+
+PixelRGB *sort_pixel(PixelRGB *pixel, int ind)
+{
+    qsort(pixel, ind, sizeof(PixelRGB), compare_pixel);
+
+    PixelRGB *result = (PixelRGB *)malloc(1 * sizeof(PixelRGB));
+    check_allocation(result, "sort_pixel");
+
+    *result = pixel[ind / 2];
+
+    return result;
+}
+
 // Calcula a soma dos tiles ao redor do central
 PixelRGB *soma_kernel_RGB(const ImageRGB *image, int index_i, int index_j, int kernel)
 {
-    int lin = index_i, col = index_j;
+    int lin = index_i, col = index_j, ind = 0;
 
-    PixelRGB *soma_pixel = alocar_pixel_RGB(1, 1);
+    PixelRGB *median_pixel = alocar_pixel_RGB(kernel, kernel);
+    check_allocation(median_pixel, "median_pixel");
 
     for(int i = 0; i < kernel; i++)
     {
         for(int j = 0; j < kernel; j++)
         {
-            int index = posicaoVetor(image->dim.largura, lin, col);
+            int index = vector_position(image->dim.largura, lin, col);
 
-            soma_pixel->blue += image->pixels[index].blue;
-            soma_pixel->red += image->pixels[index].red;
-            soma_pixel->green += image->pixels[index].green;
+            if(lin >= 0 && col >= 0)
+            {
+                median_pixel[ind].blue  = image->pixels[index].blue;
+                median_pixel[ind].red   = image->pixels[index].red;
+                median_pixel[ind].green = image->pixels[index].green;
+
+                ind += 1;
+            }
 
             if(i % 2 == 1) 
                 (j < i) ? col++ : lin++;
@@ -692,51 +718,357 @@ PixelRGB *soma_kernel_RGB(const ImageRGB *image, int index_i, int index_j, int k
         }
     }
 
-    return soma_pixel;
+    PixelRGB *result = sort_pixel(median_pixel, ind);
+    free_pixel_RGB(median_pixel);
+
+    return result;
 }
 
 // RGB: substitui cada pixel pela média dos pixels em sua vizinhança
 ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size)
 {
-    int limite = kernel_size / 2;
-    int divisor = kernel_size * kernel_size;
-
     ImageRGB *image_blur = create_image_rgb(image->dim.largura, image->dim.altura);
     
-    for (int i = limite; i < image->dim.largura - limite; i++)
+    for (int i = 0; i < image->dim.largura ; i++)
     {
-        for(int j = limite; j < image->dim.altura - limite; j++)
+        for(int j = 0; j < image->dim.altura ; j++)
         {
             PixelRGB *pixel = soma_kernel_RGB(image, i, j, kernel_size);
-            int index = posicaoVetor(image->dim.largura, i, j);
-            
-            image_blur->pixels[index].blue = pixel->blue / divisor;
-            image_blur->pixels[index].green = pixel->green / divisor;
-            image_blur->pixels[index].red = pixel->red / divisor;
-        }
-    }
+            int index = vector_position(image->dim.largura, i, j);
 
-    // pega os valores das bordas 
-    for (int i = 0; i < image->dim.largura; i++)
-    {
-        for(int j = 0; j < image->dim.altura; j++)
-        {
-            if (i < limite || i >= image->dim.altura - limite || j < limite || j >= image->dim.largura - limite) 
-            {
-                int index = posicaoVetor(image->dim.largura, i, j);
-                image_blur->pixels[index].green = image->pixels[index].green;
-                image_blur->pixels[index].blue = image->pixels[index].blue;
-                image_blur->pixels[index].red = image->pixels[index].red;
-            }
+            image_blur->pixels[index].blue = pixel[0].blue;
+            image_blur->pixels[index].green = pixel[0].green;
+            image_blur->pixels[index].red = pixel[0].red;
         }
+
     }
     
     return image_blur;
 }
 
+// RandomList *random_efects(History *history, int width, int height){    
+//     srand(time(NULL));
+//     RandomList *randomList;
+//     randomList->image = history->image;
+//     RandomList *aux = randomList;
+//     if (history->type==GRAY_)
+//         {
+            
+//             for (int i = 0; i < 5; i++)
+//             {
+//                 int chosed = rand() % 5;
+
+//                 switch (chosed)
+//                 {
+//                 case 0:
+//                     aux->right->image = flip_horizontal_gray(aux->image);
+//                     break;
+//                 case 1:
+//                     aux->right->image = flip_vertical_gray(aux->image);
+//                     break;
+//                 case 2:
+//                     aux->right->image = transpose_gray(aux->image);
+//                     break;
+//                 case 3:
+//                     aux->right->image = median_blur_gray(aux->image, 8);
+//                     break;
+//                 case 4:
+//                     aux->right->image = clahe_gray(aux->image,width, height);
+//                     break;
+
+//                 aux=aux->right;
+                
+//                 }
+//             }
+//             return randomList;
+//         }
+
+            
+//             for (int i = 0; i < 5; i++)
+//             {
+//                 int chosed = rand() % 5;
+
+//                 switch (chosed)
+//                 {
+//                 case 0:
+//                     aux->right->image = flip_horizontal_rgb(aux->image);
+//                     break;
+//                 case 1:
+//                     aux->right->image = flip_vertical_rgb(aux->image);
+//                     break;
+//                 case 2:
+//                     aux->right->image = transpose_rgb(aux->image);
+//                     break;
+//                 case 3:
+//                     aux->right->image = median_blur_RGB(aux->image, 8);
+//                     break;
+//                 case 4:
+//                     aux->right->image = clahe_rgb(aux->image,width, height);
+//                     break;
+                
+//                 aux=aux->right;
+
+//                 }
+//                 return randomList;
+//             }
+                
+//         }
 
 
+// int main()
+// {
+//     FILE *path = fopen("/home/alef/Linguagens/faculdade/Work1-DataStructures/utils/input_image_example_RGB.txt", "r");
+//     check_allocation(path, "path");
 
+//     ImageRGB *image = read_rgb_image(path);
+//     fclose(path);
+
+//     FILE *load = fopen("load.txt", "w");
+
+//     ImageRGB *blur = median_blur_RGB(image, 8);
+//     save_image_rgb(blur, load);
+
+//     fclose(load);
+// }
+
+
+int gray_or_rgb(int type)
+{
+    if(type == GRAY_)
+        return 1;
+    return 0;
+}
+
+// transforma uma imagem RGB ou GRAY em TXT
+void txt_from_image(const char* image_path, const char* output_path, int type) 
+{
+    PyObject *pName, *pModule, *pFunc;
+    PyObject *pArgs, *pValue;
+    
+
+    printf("%s %s %d\n", image_path, output_path, type);
+
+    // Inicializar o interpretador Python
+    Py_Initialize();
+
+    PyRun_SimpleString("import sys");
+    PyRun_SimpleString("sys.path.append(\".\")");
+
+    // Nome do módulo Python (arquivo .py sem a extensão)
+    pName = PyUnicode_DecodeFSDefault("utils.image_utils");
+    pModule = PyImport_Import(pName);
+    Py_DECREF(pName);
+
+    if (pModule != NULL) 
+    {
+        // Nome da função a ser chamada
+
+        pFunc = PyObject_GetAttrString(pModule, "txt_from_image_gray");
+    
+        int is_gray = gray_or_rgb(type);
+
+        if (pFunc && PyCallable_Check(pFunc)) 
+        {
+            // Criar argumentos para a função Python
+            pArgs = PyTuple_Pack(3, PyUnicode_FromString(image_path), PyUnicode_FromString(output_path), PyLong_FromLong(is_gray));
+
+            // Chamar a função Python
+            PyObject *pValue = PyObject_CallObject(pFunc, pArgs);
+            Py_DECREF(pArgs);
+
+            if (pValue != NULL) 
+            {
+                printf("Chamou txt_from_image_gray com sucesso\n");
+                Py_DECREF(pValue);
+            } 
+            else 
+            {
+                Py_DECREF(pFunc);
+                Py_DECREF(pModule);
+                PyErr_Print();
+                fprintf(stderr, "Chamada da função txt_from_image_gray falhou\n");
+                return;
+            }
+        } 
+        else 
+        {
+            if (PyErr_Occurred())
+                PyErr_Print();
+
+            fprintf(stderr, "Não conseguiu encontrar a função txt_from_image_gray\n");
+        }
+        Py_XDECREF(pFunc);
+        Py_DECREF(pModule);
+    } 
+    else 
+    {
+        PyErr_Print();
+        fprintf(stderr, "Falha ao carregar o módulo image_processing\n");
+        return;
+    }
+
+    // Finalizar o interpretador Python
+    Py_Finalize();
+}
+
+// Transforma um TXT em uma imagem RGB ou GRAY
+void image_from_txt(const char* txt_path, const char* output_path, int type) 
+{
+    PyObject *pName, *pModule, *pFunc;
+    PyObject *pArgs, *pValue;
+
+    // Inicializar o interpretador Python
+    Py_Initialize();
+
+    PyRun_SimpleString("import sys");
+    PyRun_SimpleString("sys.path.append(\".\")");
+
+    // Nome do módulo Python (arquivo .py sem a extensão)
+    pName = PyUnicode_DecodeFSDefault("utils.image_utils");
+    pModule = PyImport_Import(pName);
+    Py_DECREF(pName);
+
+    if (pModule != NULL) 
+    {
+        printf("%s %s %d\n", txt_path, output_path, type);
+        // Nome da função a ser chamada
+        if(type == RGB_)
+            pFunc = PyObject_GetAttrString(pModule, "image_rgb_from_txt");
+        else
+            pFunc = PyObject_GetAttrString(pModule, "image_gray_from_txt");
+        // pFunc = PyObject_GetAttrString(pModule, "execute");
+
+        if (pFunc && PyCallable_Check(pFunc)) 
+        {
+            // Criar argumentos para a função Python
+            pArgs = PyTuple_Pack(2, PyUnicode_FromString(txt_path), PyUnicode_FromString(output_path));
+            // pArgs = PyTuple_Pack(0);
+
+            // Chamar a função Python
+            PyObject *pValue  = PyObject_CallObject(pFunc, pArgs);
+            Py_DECREF(pArgs);
+
+            if (pValue != NULL) 
+            {
+                printf("Chamou image_gray_from_txt com sucesso\n");
+                Py_DECREF(pValue);
+            } 
+            else
+            {
+                Py_DECREF(pFunc);
+                Py_DECREF(pModule);
+                PyErr_Print();
+                fprintf(stderr, "Chamada da função image_gray_from_txt falhou\n");
+                return;
+            }
+        } 
+        else 
+        {
+            if (PyErr_Occurred())
+                PyErr_Print();
+            fprintf(stderr, "Não conseguiu encontrar a função image_gray_from_txt\n");
+        }
+        Py_XDECREF(pFunc);
+        Py_DECREF(pModule);
+    } else 
+    {
+        PyErr_Print();
+        fprintf(stderr, "Falha ao carregar o módulo image_processing\n");
+        return;
+    }
+
+    // Finalizar o interpretador Python
+    Py_Finalize();
+}
+
+void adjust_image_format(Image *image) 
+{
+    if (PIXELFORMAT_UNCOMPRESSED_GRAYSCALE == image->format) 
+        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_GRAYSCALE); 
+    else if (PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA == image->format)  
+        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA);    
+    else if (PIXELFORMAT_UNCOMPRESSED_R5G6B5 == image->format) 
+        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R5G6B5);        
+    else if (PIXELFORMAT_UNCOMPRESSED_R8G8B8 == image->format)  
+        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R8G8B8);       
+    else if (PIXELFORMAT_UNCOMPRESSED_R5G5B5A1 == image->format) 
+        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R5G5B5A1);       
+    else if (PIXELFORMAT_UNCOMPRESSED_R4G4B4A4 == image->format)
+        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R4G4B4A4);        
+    else if (PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 == image->format)
+        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);       
+    else if (PIXELFORMAT_UNCOMPRESSED_R32 == image->format) 
+        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R32);            
+    else if (PIXELFORMAT_UNCOMPRESSED_R32G32B32 == image->format) 
+        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R32G32B32);      
+    else if (PIXELFORMAT_UNCOMPRESSED_R32G32B32A32 == image->format)
+        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R32G32B32A32);    
+    else if (PIXELFORMAT_UNCOMPRESSED_R16 == image->format) 
+        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R16);            
+    else if (PIXELFORMAT_UNCOMPRESSED_R16G16B16 == image->format)   
+        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R16G16B16);     
+    else if (PIXELFORMAT_UNCOMPRESSED_R16G16B16A16 == image->format) 
+        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R16G16B16A16);    
+    else if (PIXELFORMAT_COMPRESSED_DXT1_RGB == image->format)
+        ImageFormat(image, PIXELFORMAT_COMPRESSED_DXT1_RGB);          
+    else if (PIXELFORMAT_COMPRESSED_DXT1_RGBA == image->format)
+        ImageFormat(image, PIXELFORMAT_COMPRESSED_DXT1_RGBA);          
+    else if (PIXELFORMAT_COMPRESSED_DXT3_RGBA == image->format) 
+        ImageFormat(image, PIXELFORMAT_COMPRESSED_DXT3_RGBA);       
+    else if (PIXELFORMAT_COMPRESSED_DXT5_RGBA == image->format)
+        ImageFormat(image, PIXELFORMAT_COMPRESSED_DXT5_RGBA);        
+    else if (PIXELFORMAT_COMPRESSED_ETC1_RGB == image->format)  
+        ImageFormat(image, PIXELFORMAT_COMPRESSED_ETC1_RGB);       
+    else if (PIXELFORMAT_COMPRESSED_ETC2_RGB == image->format) 
+        ImageFormat(image, PIXELFORMAT_COMPRESSED_ETC2_RGB);        
+    else if (PIXELFORMAT_COMPRESSED_ETC2_EAC_RGBA == image->format)
+        ImageFormat(image, PIXELFORMAT_COMPRESSED_ETC2_EAC_RGBA);    
+    else if (PIXELFORMAT_COMPRESSED_PVRT_RGB == image->format)
+        ImageFormat(image, PIXELFORMAT_COMPRESSED_PVRT_RGB);         
+    else if (PIXELFORMAT_COMPRESSED_PVRT_RGBA == image->format)
+        ImageFormat(image, PIXELFORMAT_COMPRESSED_PVRT_RGBA);        
+    else if (PIXELFORMAT_COMPRESSED_ASTC_4x4_RGBA == image->format)  
+        ImageFormat(image, PIXELFORMAT_COMPRESSED_ASTC_4x4_RGBA);  
+    else if (PIXELFORMAT_COMPRESSED_ASTC_8x8_RGBA == image->format)
+        ImageFormat(image, PIXELFORMAT_COMPRESSED_ASTC_8x8_RGBA); 
+}
+
+// carrega a nova imagem que será mostrada na tela 
+void load_new_texture(Image *image, Texture2D *texture, History *history, char *file_path, int mode)
+{
+    /// MANDAR PARA O CODIGO PYTHON 
+    if(mode == 1)
+    {
+        txt_from_image(file_path, TXT_PATH, history->type);
+        
+        FILE *load_txt = fopen(TXT_PATH, "r");
+
+        if(history->type == RGB_)  
+            history->rgb_image = read_rgb_image(load_txt);
+        else
+            history->gray_image = read_gray_image(load_txt);
+        
+        fclose(load_txt);
+    }
+
+    // Load new image and update texture
+    Image new_image = LoadImage(file_path);
+    *image = ImageCopy(new_image);
+
+    // Adjust image format based on the type
+    if (history->type == RGB_)
+        ImageFormat(&new_image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+    else
+        ImageFormat(&new_image, PIXELFORMAT_UNCOMPRESSED_GRAYSCALE);
+
+    *texture = LoadTextureFromImage(new_image);
+
+    Color *pixels = LoadImageColors(new_image);
+
+    UpdateTexture(*texture, pixels);
+    UnloadImageColors(pixels);
+    UnloadImage(new_image);
+}
 
 
 
