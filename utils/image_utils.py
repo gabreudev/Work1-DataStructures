@@ -1,8 +1,6 @@
 from PIL import Image
 
 def txt_from_image_gray(image_path, output_path, gray=False):
-    print(f"entrada = {image_path}")
-    print(f"saida = {output_path}")
     
     img = Image.open(image_path)
 
@@ -75,7 +73,8 @@ def image_rgb_from_txt(txt_path, output_path):
 
 # image_gray_from_txt("Work1-DataStructures/utils/input_image_example_Gray.txt", "lena_gray.png");
 
-# image_gray_from_txt("Work1-DataStructures/load.txt", "image.png")
+# image_rgb_from_txt("Work1-DataStructures/load.txt", "image.jpeg")
+
 
 # def execute():
 #     image_rgb_from_txt("load.txt", "image.png")

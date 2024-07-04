@@ -100,13 +100,13 @@ void free_pixel_gray(PixelGray *pixel)
     pixel = NULL;
 }
 
-void free_image_RGB(ImageRGB *image) 
+void free_image_rgb(ImageRGB *image) 
 {
     free(image->pixels);
     free(image);
 }
 
-void free_pixel_RGB(PixelRGB *pixel) 
+void free_pixel_rgb(PixelRGB *pixel) 
 {
     free(pixel);
     pixel = NULL;
@@ -123,19 +123,48 @@ History *allocate_history()
     return history;
 }
 
-void free_history(History *history) 
+void free_history(History *history)
 {
-    if (history) 
+    while (history != NULL)
     {
-        if (history->type == GRAY_ && history->gray_image) 
+        History *next = history->right;
+        
+        if (history->type == GRAY_ && history->gray_image)
             free_image_gray(history->gray_image);
-        else if (history->type == RGB_ && history->rgb_image) 
-            free_image_RGB(history->rgb_image);
+        else if (history->type == RGB_ && history->rgb_image)
+            free_image_rgb(history->rgb_image);
         
         free(history);
+        history = next;
     }
 }
 
+
+RandomList *alloc_random()
+{
+    RandomList *l = (RandomList *)malloc(sizeof(RandomList));
+    check_allocation(l, "Random list");
+
+    l->image_gray = NULL;
+    l->image_rgb = NULL;
+    l->right = NULL;
+
+    return l;
+}
+
+void free_random(RandomList *list)
+{
+    while (list != NULL)
+    {
+        RandomList *next = list->right;
+        
+        (list->type == RGB_) ? 
+            free_image_rgb(list->image_rgb) : free_image_gray(list->image_gray);
+        
+        free(list);
+        list = next;
+    }
+}
 
 ///////////////////////////////////////////////////////////////
 ////////////////// Operações para Historico//////////////////////
@@ -173,7 +202,6 @@ History *back_image(History *history, int mode)
 
     return aux;
 }
-
 
 
 History *add_image(History *history, void *image) 
@@ -719,7 +747,7 @@ PixelRGB *soma_kernel_RGB(const ImageRGB *image, int index_i, int index_j, int k
     }
 
     PixelRGB *result = sort_pixel(median_pixel, ind);
-    free_pixel_RGB(median_pixel);
+    free_pixel_rgb(median_pixel);
 
     return result;
 }
@@ -745,75 +773,6 @@ ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size)
     
     return image_blur;
 }
-
-// RandomList *random_efects(History *history, int width, int height){    
-//     srand(time(NULL));
-//     RandomList *randomList;
-//     randomList->image = history->image;
-//     RandomList *aux = randomList;
-//     if (history->type==GRAY_)
-//         {
-            
-//             for (int i = 0; i < 5; i++)
-//             {
-//                 int chosed = rand() % 5;
-
-//                 switch (chosed)
-//                 {
-//                 case 0:
-//                     aux->right->image = flip_horizontal_gray(aux->image);
-//                     break;
-//                 case 1:
-//                     aux->right->image = flip_vertical_gray(aux->image);
-//                     break;
-//                 case 2:
-//                     aux->right->image = transpose_gray(aux->image);
-//                     break;
-//                 case 3:
-//                     aux->right->image = median_blur_gray(aux->image, 8);
-//                     break;
-//                 case 4:
-//                     aux->right->image = clahe_gray(aux->image,width, height);
-//                     break;
-
-//                 aux=aux->right;
-                
-//                 }
-//             }
-//             return randomList;
-//         }
-
-            
-//             for (int i = 0; i < 5; i++)
-//             {
-//                 int chosed = rand() % 5;
-
-//                 switch (chosed)
-//                 {
-//                 case 0:
-//                     aux->right->image = flip_horizontal_rgb(aux->image);
-//                     break;
-//                 case 1:
-//                     aux->right->image = flip_vertical_rgb(aux->image);
-//                     break;
-//                 case 2:
-//                     aux->right->image = transpose_rgb(aux->image);
-//                     break;
-//                 case 3:
-//                     aux->right->image = median_blur_RGB(aux->image, 8);
-//                     break;
-//                 case 4:
-//                     aux->right->image = clahe_rgb(aux->image,width, height);
-//                     break;
-                
-//                 aux=aux->right;
-
-//                 }
-//                 return randomList;
-//             }
-                
-//         }
-
 
 // int main()
 // {
@@ -849,7 +808,7 @@ void txt_from_image(const char* image_path, const char* output_path, int type)
     printf("%s %s %d\n", image_path, output_path, type);
 
     // Inicializar o interpretador Python
-    Py_Initialize();
+    // Py_Initialize();
 
     PyRun_SimpleString("import sys");
     PyRun_SimpleString("sys.path.append(\".\")");
@@ -908,7 +867,7 @@ void txt_from_image(const char* image_path, const char* output_path, int type)
     }
 
     // Finalizar o interpretador Python
-    Py_Finalize();
+    // Py_Finalize();
 }
 
 // Transforma um TXT em uma imagem RGB ou GRAY
@@ -918,7 +877,7 @@ void image_from_txt(const char* txt_path, const char* output_path, int type)
     PyObject *pArgs, *pValue;
 
     // Inicializar o interpretador Python
-    Py_Initialize();
+    // Py_Initialize();
 
     PyRun_SimpleString("import sys");
     PyRun_SimpleString("sys.path.append(\".\")");
@@ -978,63 +937,37 @@ void image_from_txt(const char* txt_path, const char* output_path, int type)
     }
 
     // Finalizar o interpretador Python
-    Py_Finalize();
+    // Py_Finalize();
 }
 
-void adjust_image_format(Image *image) 
+void adjust_image_size(Image *image)
 {
-    if (PIXELFORMAT_UNCOMPRESSED_GRAYSCALE == image->format) 
-        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_GRAYSCALE); 
-    else if (PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA == image->format)  
-        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA);    
-    else if (PIXELFORMAT_UNCOMPRESSED_R5G6B5 == image->format) 
-        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R5G6B5);        
-    else if (PIXELFORMAT_UNCOMPRESSED_R8G8B8 == image->format)  
-        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R8G8B8);       
-    else if (PIXELFORMAT_UNCOMPRESSED_R5G5B5A1 == image->format) 
-        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R5G5B5A1);       
-    else if (PIXELFORMAT_UNCOMPRESSED_R4G4B4A4 == image->format)
-        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R4G4B4A4);        
-    else if (PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 == image->format)
-        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);       
-    else if (PIXELFORMAT_UNCOMPRESSED_R32 == image->format) 
-        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R32);            
-    else if (PIXELFORMAT_UNCOMPRESSED_R32G32B32 == image->format) 
-        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R32G32B32);      
-    else if (PIXELFORMAT_UNCOMPRESSED_R32G32B32A32 == image->format)
-        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R32G32B32A32);    
-    else if (PIXELFORMAT_UNCOMPRESSED_R16 == image->format) 
-        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R16);            
-    else if (PIXELFORMAT_UNCOMPRESSED_R16G16B16 == image->format)   
-        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R16G16B16);     
-    else if (PIXELFORMAT_UNCOMPRESSED_R16G16B16A16 == image->format) 
-        ImageFormat(image, PIXELFORMAT_UNCOMPRESSED_R16G16B16A16);    
-    else if (PIXELFORMAT_COMPRESSED_DXT1_RGB == image->format)
-        ImageFormat(image, PIXELFORMAT_COMPRESSED_DXT1_RGB);          
-    else if (PIXELFORMAT_COMPRESSED_DXT1_RGBA == image->format)
-        ImageFormat(image, PIXELFORMAT_COMPRESSED_DXT1_RGBA);          
-    else if (PIXELFORMAT_COMPRESSED_DXT3_RGBA == image->format) 
-        ImageFormat(image, PIXELFORMAT_COMPRESSED_DXT3_RGBA);       
-    else if (PIXELFORMAT_COMPRESSED_DXT5_RGBA == image->format)
-        ImageFormat(image, PIXELFORMAT_COMPRESSED_DXT5_RGBA);        
-    else if (PIXELFORMAT_COMPRESSED_ETC1_RGB == image->format)  
-        ImageFormat(image, PIXELFORMAT_COMPRESSED_ETC1_RGB);       
-    else if (PIXELFORMAT_COMPRESSED_ETC2_RGB == image->format) 
-        ImageFormat(image, PIXELFORMAT_COMPRESSED_ETC2_RGB);        
-    else if (PIXELFORMAT_COMPRESSED_ETC2_EAC_RGBA == image->format)
-        ImageFormat(image, PIXELFORMAT_COMPRESSED_ETC2_EAC_RGBA);    
-    else if (PIXELFORMAT_COMPRESSED_PVRT_RGB == image->format)
-        ImageFormat(image, PIXELFORMAT_COMPRESSED_PVRT_RGB);         
-    else if (PIXELFORMAT_COMPRESSED_PVRT_RGBA == image->format)
-        ImageFormat(image, PIXELFORMAT_COMPRESSED_PVRT_RGBA);        
-    else if (PIXELFORMAT_COMPRESSED_ASTC_4x4_RGBA == image->format)  
-        ImageFormat(image, PIXELFORMAT_COMPRESSED_ASTC_4x4_RGBA);  
-    else if (PIXELFORMAT_COMPRESSED_ASTC_8x8_RGBA == image->format)
-        ImageFormat(image, PIXELFORMAT_COMPRESSED_ASTC_8x8_RGBA); 
+    int screenWidth = GetScreenWidth() * 0.90;
+    int screenHeight = GetScreenHeight() * 0.90;
+
+    if ((*image).width > screenWidth || (*image).height > screenHeight) 
+    {
+        float aspectRatio = (float)(*image).width / (float)(*image).height;
+        int newWidth = (*image).width;
+        int newHeight = (*image).height;
+
+        if ((*image).width > screenWidth) 
+        {
+            newWidth = screenWidth;
+            newHeight = newWidth / aspectRatio;
+        }
+        if (newHeight > screenHeight) 
+        {
+            newHeight = screenHeight;
+            newWidth = newHeight * aspectRatio;
+        }
+
+        ImageResize(&(*image), newWidth, newHeight);
+    }
 }
 
 // carrega a nova imagem que será mostrada na tela 
-void load_new_texture(Image *image, Texture2D *texture, History *history, char *file_path, int mode)
+void load_new_texture(Texture2D *texture, History *history, char *file_path, int mode)
 {
     /// MANDAR PARA O CODIGO PYTHON 
     if(mode == 1)
@@ -1051,24 +984,126 @@ void load_new_texture(Image *image, Texture2D *texture, History *history, char *
         fclose(load_txt);
     }
 
+        // Resize image if larger than screen dimensions
+    int screenWidth = GetScreenWidth() * 0.90;
+    int screenHeight = GetScreenHeight() * 0.90;
+
     // Load new image and update texture
     Image new_image = LoadImage(file_path);
-    *image = ImageCopy(new_image);
+    
+    if(new_image.width > (GetScreenWidth() * 0.90) || new_image.height > (GetScreenHeight() * 0.90))
+        adjust_image_size(&new_image);
 
-    // Adjust image format based on the type
-    if (history->type == RGB_)
-        ImageFormat(&new_image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
-    else
-        ImageFormat(&new_image, PIXELFORMAT_UNCOMPRESSED_GRAYSCALE);
+    if(texture->id > 0) UpdateTexture(*texture, new_image.data) ;
+    else *texture = LoadTextureFromImage(new_image);
 
-    *texture = LoadTextureFromImage(new_image);
-
-    Color *pixels = LoadImageColors(new_image);
-
-    UpdateTexture(*texture, pixels);
-    UnloadImageColors(pixels);
     UnloadImage(new_image);
 }
 
 
+void random_effects(ImageType type, RandomList *rl)
+{    
+    srand(time(NULL));
+    RandomList *aux = rl;
 
+    int load_list = 0;
+
+    if (IsFileDropped())
+    {
+        if(aux) free_random(aux);
+        aux = alloc_random();
+        aux->type = type;
+        
+        FilePathList droppedFiles = LoadDroppedFiles();
+        
+        txt_from_image(droppedFiles.paths[0], TXT_PATH, type);
+        
+        FILE *file_path = fopen(TXT_PATH, "r");
+
+        if(type == RGB_)
+            aux->image_rgb = read_rgb_image(file_path);
+        else
+            aux->image_gray = read_gray_image(file_path);
+
+        free(file_path);
+        UnloadDroppedFiles(droppedFiles);    // Unload filepaths from memory
+    }
+
+    int esc = 0;
+    if(type)
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            aux->right = alloc_random();
+            esc = rand() % 5;
+            switch(esc)
+            {
+            case 0:
+                aux->right->image_rgb = median_blur_RGB(aux->image_rgb, 8);
+                break;
+            case 1:
+                aux->right->image_rgb = clahe_rgb(aux->image_rgb, aux->image_rgb->dim.largura, aux->image_rgb->dim.altura);
+                break;
+            case 2: 
+                aux->right->image_rgb = flip_vertical_rgb(aux->image_rgb);
+                break;
+            case 3: 
+                aux->right->image_rgb = flip_horizontal_rgb(aux->image_rgb);
+                break;
+            case 4:
+                aux->right->image_rgb = transpose_rgb(aux->image_rgb);
+            default:
+                break;
+            }
+            aux = aux->right;
+            aux->type = type;
+        }
+    }
+    else
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            aux->right = alloc_random();
+            esc = rand() % 5;
+            switch(esc)
+            {
+            case 0:
+                aux->right->image_gray = median_blur_gray(aux->image_gray, 8);
+                break;
+            case 1:
+                aux->right->image_gray = clahe_gray(aux->image_gray, aux->image_gray->dim.largura, aux->image_gray->dim.altura);
+                break;
+            case 2: 
+                aux->right->image_gray = flip_vertical_gray(aux->image_gray);
+                break;
+            case 3: 
+                aux->right->image_gray = flip_horizontal_gray(aux->image_gray);
+                break;
+            case 4:
+                aux->right->image_gray = transpose_gray(aux->image_gray);
+            default:
+                break;
+            }
+            aux = aux->right;
+            aux->type = type;
+        }
+    }
+    aux->right = NULL;
+}
+
+
+
+// int main()
+// {
+//     RandomList *random = alloc_random();
+//     random->type = RGB_;
+//     FILE *FP = fopen("utils/input_image_example_RGB.txt", "r");
+//     check_allocation(FP, "fp");
+//     random->image_rgb = read_rgb_image(FP);
+//     fclose(FP);
+
+
+//     random_effects(RGB_, random);
+
+//     return 0;
+// }
