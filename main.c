@@ -6,7 +6,7 @@
 // #include "image.c"
 #include <Python.h>
 
-MenuScreen current_screen = RANDOM_MENU;
+MenuScreen current_screen = MAIN_MENU;
 
 void initialize_history(History *history, ImageType type)
 {
@@ -196,6 +196,7 @@ void main_menu_screen(History **history, bool *textureReload, ImageType actual_t
                 ///////////////
                 break;
             case UNDO:
+                // printf("%d\n", (*history)->type);
                 if((*history)->left || (*history)->right) 
                 {
                     *history = back_image(*history, 1);
@@ -282,14 +283,15 @@ RandomList *random_menu_screen(RandomList **rl, Texture2D *texture, ImageType ty
         }
         break;
     case NEW_FIVE:
-        free_random(*rl);
-        RandomList *new_random = alloc_random();
+        RandomList *new_random = alloc_random(), *aux = (*rl);
         initialize_random_effects(new_random, type);
 
-        if(type == RGB_) load_new_texture_random(texture, new_random, LENA_RGB, 0);
-        else load_new_texture_random(texture, new_random, LENA_GRAY, 0);
-        
-        return new_random;
+        while(aux->right) aux = aux->right;
+        aux->right = new_random;
+
+        // if(type == RGB_) load_new_texture_random(texture, new_random, LENA_RGB, 0);
+        // else load_new_texture_random(texture, new_random, LENA_GRAY, 0);
+        *textureReload = false;
         break;
     case BACK_MENU:
         *current_proc = NONE;
@@ -309,22 +311,32 @@ int main(void)
     const int screenHeight = 450;
     char load_type[] = "DROPPED FILE TYPE - RGB:  ";
     ImageType actual_type = RGB_;
-    Texture2D texture, texture_random;
-    History *history = allocate_history();
-    RandomList *randomlist = alloc_random(); 
-
-    randomlist->type = RGB_;
-    FILE *FP = fopen("utils/input_image_example_RGB.txt", "r");
-    check_allocation(FP, "fp");
-    randomlist->image_rgb = read_rgb_image(FP);
-    fclose(FP);
+    // Texture2D texture, texture_random;
+    Texture2D texture, texture_random, texture_rgb, texture_gray, random_gray, random_rgb;
+    // History *history = allocate_history();
+    History *history_gray = allocate_history();
+    History *history_rgb = allocate_history();
+    RandomList *randomlist_gray = alloc_random(); 
+    RandomList *randomlist_rgb = alloc_random(); 
     
     InitWindow(screenWidth, screenHeight, "PROCESSAMENTO DE IMAGENS");
     // initialize_random_effects(randomlist, actual_type);
-    initialize_history(history, actual_type);
-    random_effects(RGB_, randomlist);
-    load_new_texture(&texture, history, LENA_RGB, 0);
-    load_new_texture_random(&texture_random, randomlist, LENA_RGB, 0);
+    initialize_random_effects(randomlist_rgb, RGB_);
+    initialize_random_effects(randomlist_gray, GRAY_);
+    // initialize_history(history, actual_type);
+    initialize_history(history_rgb, RGB_);
+    initialize_history(history_gray, GRAY_);
+    // random_effects(actual_type, randomlist);
+    random_effects(RGB_, randomlist_rgb);
+    random_effects(GRAY_, randomlist_gray);
+    // load_new_texture(&texture, history, LENA_RGB, 0);
+    load_new_texture(&texture_rgb, history_rgb, LENA_RGB, 0);
+    load_new_texture(&texture_gray, history_gray, LENA_GRAY, 0);
+    load_new_texture_random(&random_rgb, randomlist_rgb, LENA_RGB, 0);
+    load_new_texture_random(&random_gray, randomlist_gray, LENA_GRAY, 0);
+    ///////////////////////////////////////////////////////////
+    texture = texture_rgb;
+    texture_random = random_rgb;
     ///////////////////////////////////////////////////////////
     int currentProcess = NONE;
     bool textureReload = false;
@@ -351,8 +363,18 @@ int main(void)
         //----------------------------------------------------------------------------------
         switch(current_screen)
         {
-            case MAIN_MENU: main_menu_screen(&history, &textureReload, actual_type, currentProcess, &texture, mouseHoverRec, recs_main); break;
-            case RANDOM_MENU: random_menu_screen(&randomlist, &texture_random, actual_type, &currentProcess, mouseHoverRec, &textureReload); break;
+            case MAIN_MENU: 
+                if(actual_type == RGB_)
+                    main_menu_screen(&history_rgb, &textureReload, actual_type, currentProcess, &texture, mouseHoverRec, recs_main);
+                else 
+                    main_menu_screen(&history_gray, &textureReload, actual_type, currentProcess, &texture, mouseHoverRec, recs_main); 
+                break;
+            case RANDOM_MENU: 
+                if(actual_type == RGB_)
+                    random_menu_screen(&randomlist_rgb, &texture_random, actual_type, &currentProcess, mouseHoverRec, &textureReload); 
+                else
+                    random_menu_screen(&randomlist_gray, &texture_random, actual_type, &currentProcess, mouseHoverRec, &textureReload); 
+                break;
             default: break;
         }
 
@@ -362,21 +384,15 @@ int main(void)
             if(actual_type == RGB_)
             {
                 actual_type = GRAY_;
-                // History *new = allocate_history();
-                // initialize_history(new, actual_type);
-                // load_new_texture(&texture, new, LENA_GRAY, 0);
-                // free_history(history);
-                // history = new;
+                texture = texture_gray;
+                texture_random = random_gray;
                 strcpy(load_type, "DROPPED FILE TYPE - GRAY:");
             }
             else
             {
                 actual_type = RGB_;
-                // History *new = allocate_history();
-                // initialize_history(new, actual_type);
-                // load_new_texture(&texture, new, LENA_RGB, 0);
-                // free_history(history);
-                // history = new;
+                texture = texture_rgb;
+                texture_random = random_rgb;
                 strcpy(load_type, "DROPPED FILE TYPE - RGB:");
             }
         }
@@ -466,9 +482,23 @@ int main(void)
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
-    UnloadTexture(texture);       // Unload texture from VRAM
-    free_history(history);          
-    CloseWindow();                // Close window and OpenGL context
+    // Liberar texturas
+    UnloadTexture(texture);
+    UnloadTexture(texture_random);
+    UnloadTexture(texture_rgb);
+    UnloadTexture(texture_gray);
+    UnloadTexture(random_gray);
+    UnloadTexture(random_rgb);
+    // Liberar históricos
+    free_history(history_gray);
+    free_history(history_rgb);
+    // Liberar listas aleatórias
+    free_random(randomlist_gray);
+    free_random(randomlist_rgb);
+
+    // Fechar a janela do Raylib
+    CloseWindow();
+               // Close window and OpenGL context
     Py_Finalize();
     //--------------------------------------------------------------------------------------
 

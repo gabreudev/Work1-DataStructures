@@ -125,6 +125,8 @@ History *allocate_history()
 
 void free_history(History *history)
 {
+    while(history->left) history = history->left;
+    
     while (history != NULL)
     {
         History *next = history->right;
@@ -184,13 +186,20 @@ History *back_image(History *history, int mode)
             {
                 ret = aux->left;
                 ret->right = NULL;
-                free_history(aux);
+                // free_history(aux);
+                if(aux->type == RGB_)
+                    free_image_rgb(aux->rgb_image);
+                else
+                    free_image_gray(aux->gray_image);
+                
+                free(aux);
                 
                 return ret;
             }
             aux = prox;
             prox = prox->right;
         }
+        
     }
     else
     {
