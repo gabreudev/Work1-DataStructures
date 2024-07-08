@@ -1,5 +1,18 @@
 #ifndef IMAGE_H
 #define IMAGE_H
+
+#include<raylib.h>
+
+#define NIVEL_INTENSIDADE 256
+#define KEEP 1
+#define DELETE 0
+#define TXT_PATH "load.txt"
+#define IMAGE_PATH "image.png"
+#define LENA_RGB "utils/lena.png"
+#define LENA_GRAY "utils/lena_gray.png"
+#define NUM_PROCESSES  10
+#define PROCESSES_RANDOM 4
+
 typedef struct dimensoes {
     int altura, largura;
 } Dimensoes;
@@ -24,20 +37,67 @@ typedef struct imageRGB {
 
 
 typedef enum imageType {
-    GRAY,
-    RGB
+    GRAY_,
+    RGB_
 } ImageType;
+
+typedef enum menuScreen {
+    MAIN_MENU,
+    RANDOM_MENU
+} MenuScreen;
+
+typedef enum {
+    NONE = 0,
+    BLUR,
+    EQUALIZER,
+    VERTICAL,
+    HORIZONTAL,
+    TRANSPOSE,
+    UNDO,
+    NEXT,
+    PREVIOUS,
+    RANDOM_EFFECTS
+} ImageProcess;
+typedef enum {
+    NOONE,
+    RANDOM_NEXT,
+    NEW_FIVE,
+    BACK_MENU
+} RandomProcess;
+
+static const char *processText[] = {
+    "NO PROCESSING",
+    "BLUR",
+    "EQUALIZER",
+    "VERTICAL",
+    "HORIZONTAL",
+    "TRANSPOSE",
+    "UNDO",
+    "NEXT >",
+    "< PREVIOUS",
+    "RANDOM EFFECTS"
+};
+
+static const char *randomText[] = {
+    "NO PROCESSING",
+    "NEXT >",
+    "MORE FIVE",
+    "BACK TO EDIT MENU"
+};
 
 
 typedef struct history {
-    void *image;
     ImageType type;
+    ImageGray *gray_image;
+    ImageRGB *rgb_image;
     struct history *right; 
     struct history *left;  
 } History;
 
 typedef struct randomList {
-    void *image;
+    ImageGray *image_gray;
+    ImageRGB *image_rgb;
+
     ImageType type;
     struct randomList *right;   
 } RandomList;
@@ -46,21 +106,33 @@ typedef struct randomList {
 // Operações de ERRO
 void check_allocation(void *pointer, const char *mensage);
 
+int vector_position(int largura, int i, int j);
+
 // Funções de criação e liberação
+
 ImageGray *create_image_gray(int largura, int altura);
 void free_image_gray(ImageGray *image);
 void free_pixel_gray(PixelGray *pixel);
 
 ImageRGB *create_image_rgb(int largura, int altura);
 void free_image_rgb(ImageRGB *image);
-void free_pixel_RGB(PixelRGB *pixel);
+void free_pixel_rgb(PixelRGB *pixel);
 
 History *allocate_history();
 void free_history(History *history);
 
-//////////////////////
-int verify_NULL(History *history);
+// aloca a linked list random 
+RandomList *alloc_random();
+// libera a linked list random 
+void free_random(RandomList *list);
 
+//////////////////////
+
+// função pra adicionar um novo node, ela vai receber o historico e uma imagem, 
+// convertendo automaticamente dependendo do tipo de historico 
+History *add_image(History *history, void *image);
+
+// retorna a imagem anterior, desfazendo ou não a ultima imagem
 History *back_image(History *history, int mode);
  // função de refazer operações, avançando para a próxima imagem, se possível.
 History *next_image(History *history);
@@ -69,7 +141,7 @@ History *browse_history(History *history, int version);
 
 
 ////// Operações de arquivos /////////
-FILE *open(char *name, char *operation);
+// FILE *open_file(char *name, char *operation);
 
 // Ler txt e converter em imagem -> Image
 ImageRGB *read_rgb_image(FILE *arquivo);
@@ -127,10 +199,50 @@ void equalize_tile_rgb(const ImageRGB *image, ImageRGB *equalized,PixelRGB *CDF,
 // RGB: Aplica o clahe, retornando a imagem equalizada 
 ImageRGB *clahe_rgb(const ImageRGB *image, int tile_width, int tile_height);
 
+// compara o pixeis para usar o qsort
+int compare_pixel(const void *a, const void *b);
+
+// ordenar os pixeis usando qsort
+PixelRGB *sort_pixel(PixelRGB *pixel, int ind);
+
 // RGB: Calcula a soma dos tiles ao redor do central
 PixelRGB *soma_kernel_RGB(const ImageRGB *image, int index_i, int index_j, int kernel);
 
 // RGB: substitui cada pixel pela média dos pixels em sua vizinhança
 ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size);
+
+// iniicializa o historico com o tipo de imagem desejado
+void initialize_history(History *history, ImageType type);
+// iniicializa a randomlist com o tipo de imagem desejado
+void initialize_random_effects(RandomList *rl, ImageType type);
+
+//////////////////// PYTHON STUFF ////////////////////////////////////////
+
+// eh menino ou menina 
+int gray_or_rgb(int type);
+// transforma uma imagem RGB ou GRAY em TXT
+void txt_from_image(const char* image_path, const char* output_path, int type);
+// Transforma um TXT em uma imagem RGB ou GRAY
+void image_from_txt(const char* txt_path, const char* output_path, int type);
+// ajusta o tamanho da imagem a ser mostrada na interface 
+void adjust_image_size(Image *image);
+
+/////////////////// TEXTURES ///////////////////////////////////////
+
+// carrega a nova imagem que será mostrada na tela 
+void load_new_texture(Texture2D *texture, History *history, char *file_path, int mode);
+// carrega a nova imagem que será mostrada na tela
+void load_new_texture_random(Texture2D *texture, RandomList *rl, char *file_path, int mode);
+
+/////////////////////// RANDOM STUFF //////////////////////////////////////
+
+// aplica 5 efeitos aleatorios para uma imagem 
+void random_effects(ImageType type, RandomList *rl);
+
+/////////////////// SCREENS ///////////////////
+void main_menu_screen(History **history, bool *textureReload, ImageType actual_type, int currentProcess,Texture2D *texture, int mouseHoverRec, Rectangle *recs_main);
+RandomList *random_menu_screen(RandomList **rl, Texture2D *texture, ImageType type, int *current_proc, int mouse_hover, bool *textureReload);
+// inicializa todo o programa
+void init(void);
 
 #endif // IMAGE_H

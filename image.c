@@ -4,21 +4,12 @@
 #include<assert.h>
 #include<errno.h>
 #include<math.h>
+#include<time.h>
 #include<string.h>
+#include<stdlib.h>
+#include<Python.h>
+#include<raylib.h>
 #include"image.h"
-
-//////////////////////////////////////////
-////////////// DEFINES //////////////////
-
-#define NIVEL_INTENSIDADE 256
-#define TRUE 1
-#define FALSE 0
-#define KEEP 1
-#define DELETE 0
-
-///////////////////////////////////////////
-//////////////// STRUCTS //////////////////
-
 
 ///////////////////////////////////////////////////////////////
 //////////////////// Operações para ERRO //////////////////////
@@ -34,10 +25,9 @@ void check_allocation(void *pointer, const char *mensage)
 }
 
 // "Converte" posição de matriz para posição de vetor
-int posicaoVetor(int largura, int i, int j){return largura * i + j;}
+int vector_position(int largura, int i, int j) {return largura * i + j;}
 ///////////////////////////////////////////////////////////////
 //////////////////// Operações para alocação //////////////////
-
 
 PixelGray *alocar_pixel_gray(int largura, int altura)
 {
@@ -46,6 +36,7 @@ PixelGray *alocar_pixel_gray(int largura, int altura)
 
     return pixel;
 }
+
 ImageGray *alocar_image_gray(int largura, int altura)
 {
     ImageGray *image = (ImageGray *)malloc(sizeof(ImageGray));
@@ -109,22 +100,22 @@ void free_pixel_gray(PixelGray *pixel)
     pixel = NULL;
 }
 
-void free_image_RGB(ImageRGB *image) 
+void free_image_rgb(ImageRGB *image) 
 {
     free(image->pixels);
     free(image);
 }
 
-void free_pixel_RGB(PixelRGB *pixel) 
+void free_pixel_rgb(PixelRGB *pixel) 
 {
     free(pixel);
     pixel = NULL;
-}
+} 
 
-History *allocate_history()
+History *allocate_history() 
 {
     History *history = (History *)malloc(sizeof(History));
-    check_allocation(history, "historico");
+    check_allocation(history, "History");
 
     history->left = NULL;
     history->right = NULL;
@@ -132,20 +123,48 @@ History *allocate_history()
     return history;
 }
 
-
-
-void free_history(History *history) 
+void free_history(History *history)
 {
-    while (history != NULL) 
+    while(history->left) history = history->left;
+    
+    while (history != NULL)
     {
-        History *temp = history;
-        history = history->right;
-        if (temp->type == GRAY) 
-            free_image_gray((ImageGray *)temp->image);
-        else 
-            free_image_RGB((ImageRGB *)temp->image);
+        History *next = history->right;
         
-        free(temp);
+        if (history->type == GRAY_ && history->gray_image)
+            free_image_gray(history->gray_image);
+        else if (history->type == RGB_ && history->rgb_image)
+            free_image_rgb(history->rgb_image);
+        
+        free(history);
+        history = next;
+    }
+}
+
+
+RandomList *alloc_random()
+{
+    RandomList *l = (RandomList *)malloc(sizeof(RandomList));
+    check_allocation(l, "Random list");
+
+    l->image_gray = NULL;
+    l->image_rgb = NULL;
+    l->right = NULL;
+
+    return l;
+}
+
+void free_random(RandomList *list)
+{
+    while (list != NULL)
+    {
+        RandomList *next = list->right;
+        
+        (list->type == RGB_) ? 
+            free_image_rgb(list->image_rgb) : free_image_gray(list->image_gray);
+        
+        free(list);
+        list = next;
     }
 }
 
@@ -153,48 +172,69 @@ void free_history(History *history)
 ////////////////// Operações para Historico//////////////////////
 
 
-int verify_NULL(History *history) 
-{ 
-    return (!history) ? TRUE : FALSE; 
-}
-
 // função de desfazer operações, removendo a imagem atual e retornando à anterior 
 // mode (1 - apaga a imagem, 0 - deixa a imagem no historico).
 History *back_image(History *history, int mode)
 {
-    if(!history || !history->right)
-        return history;
-
-    History *aux = history, *prox = history->right;
+    History *aux = history, *prox = history->right, *ret;
 
     if(mode == 1)
     {
-        while(!verify_NULL(aux))
+        while(aux)
         {
-            if(!verify_NULL(prox))
+            if(!prox)
             {
-                prox->left = NULL;
-                aux->right = NULL;
+                ret = aux->left;
+                ret->right = NULL;
+                // free_history(aux);
+                if(aux->type == RGB_)
+                    free_image_rgb(aux->rgb_image);
+                else
+                    free_image_gray(aux->gray_image);
                 
-                (prox->type == RGB) ? 
-                    free_image_RGB(prox->image) : free_image_gray(prox->image);
-
-                free(prox);
-                return aux;
+                free(aux);
+                
+                return ret;
             }
             aux = prox;
             prox = prox->right;
         }
+        
     }
     else
     {
-        if(!verify_NULL(aux->left))
+        if(aux->left)
             aux = aux->left;
 
         return aux;
     }
 
     return aux;
+}
+
+
+History *add_image(History *history, void *image) 
+{
+    // Create a new history node
+    History *new_node = allocate_history();
+    new_node->type = history->type;
+
+    if (history->type == GRAY_) 
+        new_node->gray_image = (ImageGray *)image;
+    else if (history->type == RGB_) 
+        new_node->rgb_image = (ImageRGB *)image;
+    
+    // Attach the new node to the end of the history list
+    if(history) 
+    {
+        while (history->right) 
+            history = history->right;
+        
+        history->right = new_node;
+        new_node->left = history;
+    }
+
+    return new_node;
 }
 
  // função de refazer operações, avançando para a próxima imagem, se possível.
@@ -244,18 +284,18 @@ History *browse_history(History *history, int version)
 ////////////////// Operações para Arquivo//////////////////////
 
 // Abrir arquivo nome do arquivo e tipo de operação(ler/escrever)
-FILE *open(char *name, char *operation)
-{
-    FILE *file = fopen(name, operation);
+// FILE *open_file(char *name, char *operation)
+// {
+//     FILE *file = fopen(name, operation);
 
-    if(!file)
-    {
-        fprintf(stderr, "Erro ao abrir o arquivo: %s\n", name);
-        exit(EXIT_FAILURE);
-    }
+//     if(!file)
+//     {
+//         fprintf(stderr, "Erro ao abrir o arquivo: %s\n", name);
+//         exit(EXIT_FAILURE);
+//     }
 
-    return file;
-}
+//     return file;
+// }
 
 // Ler txt e converter em imagem -> ImageRGB
 ImageRGB *read_rgb_image(FILE *arquivo)
@@ -359,7 +399,7 @@ void save_image_gray(ImageGray *image, FILE *arquivo)
 //////////////// Operações para ImageGray//////////////////////
 ImageGray *flip_vertical_gray(ImageGray *image)
 {
-    ImageGray *newImage = alocar_image_gray(image->dim.altura, image->dim.largura);
+    ImageGray *newImage = create_image_gray(image->dim.altura, image->dim.largura);
 
     newImage->dim.altura = image->dim.altura;
     newImage->dim.largura = image->dim.largura;
@@ -368,7 +408,7 @@ ImageGray *flip_vertical_gray(ImageGray *image)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(image->dim.largura, i, j)] = image->pixels[posicaoVetor(image->dim.largura, image->dim.altura - 1 - i, j)];
+            newImage->pixels[vector_position(image->dim.largura, i, j)] = image->pixels[vector_position(image->dim.largura, image->dim.altura - 1 - i, j)];
         }
     }
 
@@ -376,16 +416,15 @@ ImageGray *flip_vertical_gray(ImageGray *image)
 }
 
 
+ImageGray *flip_horizontal_gray(ImageGray *image)
+{
+    ImageGray *newImage = create_image_gray(image->dim.altura, image->dim.largura);
 
-ImageGray *flip_horizontal_gray(ImageGray *image){
-    ImageGray *newImage = alocar_image_gray(image->dim.altura, image->dim.largura);
-    newImage->dim.altura = image->dim.altura;
-    newImage->dim.largura = image->dim.largura;
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(newImage->dim.largura, i, j)] = image->pixels[posicaoVetor(image->dim.largura, i, image->dim.largura-1-j)];
+            newImage->pixels[vector_position(newImage->dim.largura, i, j)] = image->pixels[vector_position(image->dim.largura, i, image->dim.largura-1-j)];
         }
     }
     return newImage;
@@ -393,14 +432,13 @@ ImageGray *flip_horizontal_gray(ImageGray *image){
 
 ImageGray *transpose_gray(const ImageGray *image)
 {
-    ImageGray *newImage = alocar_image_gray(image->dim.largura, image->dim.altura);
-    newImage->dim.altura = image->dim.largura;
-    newImage->dim.largura = image->dim.altura;
+    ImageGray *newImage = create_image_gray(image->dim.largura, image->dim.altura);
+
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(newImage->dim.largura, j, i)] = image->pixels[posicaoVetor(image->dim.largura, i, j)];
+            newImage->pixels[vector_position(newImage->dim.largura, j, i)] = image->pixels[vector_position(image->dim.largura, i, j)];
         }
     }
 
@@ -411,46 +449,51 @@ ImageGray *transpose_gray(const ImageGray *image)
 //////////////////////////////////////////////////////////////////
 /////////////// Operações para ImageRGB //////////////////////////
 ImageRGB *flip_vertical_rgb(const ImageRGB *image)
-    {
-    ImageRGB *newImage = alocar_image_RGB(image->dim.altura, image->dim.largura);
-    newImage->dim.altura = image->dim.altura;
-    newImage->dim.largura = image->dim.largura;
+
+{
+    ImageRGB *newImage = create_image_rgb(image->dim.altura, image->dim.largura);
+
+
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(newImage->dim.largura, i, j)] = image->pixels[posicaoVetor(image->dim.largura, i, image->dim.largura-1-j)];
+
+            newImage->pixels[vector_position(image->dim.largura, i, j)] = image->pixels[vector_position(image->dim.largura, image->dim.altura - 1 - i, j)];
+
         }
     }
     return newImage;
 }
+
 ImageRGB *flip_horizontal_rgb(const ImageRGB *image)
 {
-    ImageRGB *newImage = alocar_image_RGB(image->dim.altura, image->dim.largura);
 
-    newImage->dim.altura = image->dim.altura;
-    newImage->dim.largura = image->dim.largura;
-
+    ImageRGB *newImage = create_image_rgb(image->dim.altura, image->dim.largura);
+ 
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(image->dim.largura, i, j)] = image->pixels[posicaoVetor(image->dim.largura, image->dim.altura - 1 - i, j)];
+
+            newImage->pixels[vector_position(newImage->dim.largura, i, j)] = image->pixels[vector_position(image->dim.largura, i, image->dim.largura-1-j)];
+
         }
     }
 
     return newImage;
 }
+
 
 ImageRGB *transpose_rgb(const ImageRGB *image)
 {
-    ImageRGB *newImage = alocar_image_RGB(image->dim.altura, image->dim.largura);
+    ImageRGB *newImage = create_image_rgb(image->dim.altura, image->dim.largura);
 
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
-            newImage->pixels[posicaoVetor(newImage->dim.largura, j, i)] = image->pixels[posicaoVetor(image->dim.largura, i, j)];
+            newImage->pixels[vector_position(newImage->dim.largura, j, i)] = image->pixels[vector_position(image->dim.largura, i, j)];
         }
     }
 
@@ -487,13 +530,13 @@ int *cumulative_histogram(int *histogram)
 /////////////////////////////////////////////////
 
 // Calcula cada tile individual do histograma 
-void histogram_tile_gray(const ImageGray *image, int *histogram, int x1, int x2, int tile_width, int tile_height) 
+void histogram_tile_gray(const ImageGray *image, int *histogram, int x, int y, int tile_width, int tile_height) 
 {
-    for (int i = x1; i < x1 + tile_width && i < image->dim.largura; i++) 
+    for (int i = x; i < x + tile_width && i < image->dim.largura; i++) 
     {
-        for (int j = x2; j < x2 + tile_height && j < image->dim.altura; j++) 
+        for (int j = y; j < y + tile_height && j < image->dim.altura; j++) 
         {
-            int index = posicaoVetor(image->dim.largura, j, i);
+            int index = vector_position(image->dim.largura, j, i);
             histogram[image->pixels[index].value]++;
         }
     }
@@ -508,7 +551,7 @@ void histogram_equalizer_gray(const ImageGray *image,  ImageGray *equalize, int 
     {
         for (int y = 0; y < tile_width; y++) 
         {
-            int index = posicaoVetor(image->dim.largura, x + tile_increaseh, y + tile_increasew);
+            int index = vector_position(image->dim.largura, x + tile_increaseh, y + tile_increasew);
             int pixel_value = image->pixels[index].value;
             int new_value = round(((float)(CDF[pixel_value] - cdf_min) / (tile_width * tile_height - cdf_min)) * (NIVEL_INTENSIDADE - 1));
             equalize->pixels[index].value = new_value;
@@ -521,15 +564,15 @@ ImageGray *clahe_gray(const ImageGray *image, int tile_width, int tile_height)
 {
     ImageGray *equalized_image = create_image_gray(image->dim.largura, image->dim.altura);
 
-    for (int x1 = 0; x1 < image->dim.largura; x1 += tile_width) 
+    for (int x = 0; x < image->dim.largura; x += tile_width) 
     {
-        for (int x2 = 0; x2 < image->dim.altura; x2 += tile_height) 
+        for (int y = 0; y < image->dim.altura; y += tile_height) 
         {
             int histogram[NIVEL_INTENSIDADE] = {0};
 
-            histogram_tile_gray(image, histogram, x1, x2, tile_width, tile_height);
+            histogram_tile_gray(image, histogram, x, y, tile_width, tile_height);
             int *CDF = cumulative_histogram(histogram);
-            histogram_equalizer_gray(image, equalized_image, CDF, tile_width, tile_height, x1, x2);
+            histogram_equalizer_gray(image, equalized_image, CDF, tile_width, tile_height, x, y);
 
             free(CDF);
         }
@@ -538,18 +581,25 @@ ImageGray *clahe_gray(const ImageGray *image, int tile_width, int tile_height)
     return equalized_image;
 }
 
+
 // Calcula a soma dos tiles ao redor do central
 int soma_kernel_gray(const ImageGray *image, int index_i, int index_j, int kernel)
 {
-    int lin = index_i, col = index_j, soma = 0;
+    int lin = index_i, col = index_j, ind = 0;
+
+    int sum = 0;
 
     for(int i = 0; i < kernel; i++)
     {
         for(int j = 0; j < kernel; j++)
         {
-            int index = posicaoVetor(image->dim.largura, lin, col);
+            int index = vector_position(image->dim.largura, lin, col);
 
-            soma += image->pixels[index].value;
+            if(lin >= 0 && col >= 0)
+            {
+                sum += image->pixels[index].value;
+                ind += 1;
+            }
 
             if(i % 2 == 1) 
                 (j < i) ? col++ : lin++;
@@ -558,41 +608,74 @@ int soma_kernel_gray(const ImageGray *image, int index_i, int index_j, int kerne
         }
     }
 
-    return soma;
+    int result = sum / ind;
+
+    return result;
 }
 
 ImageGray *median_blur_gray(const ImageGray *image, int kernel_size)
 {
-    int limite = kernel_size / 2;
-    int divisor = kernel_size * kernel_size;
-
     ImageGray *image_blur = create_image_gray(image->dim.largura, image->dim.altura);
     
-    for (int i = limite; i < image->dim.largura - limite; i++)
-    {
-        for(int j = limite; j < image->dim.altura - limite; j++)
-        {
-            int soma = soma_kernel_gray(image, i, j, kernel_size);
-            int new_pixel = soma / divisor;
-            
-            image_blur->pixels[posicaoVetor(image_blur->dim.largura, i, j)].value = new_pixel;
-        }
-    }
-
     for (int i = 0; i < image->dim.largura; i++)
     {
         for(int j = 0; j < image->dim.altura; j++)
         {
-            if (i < limite || i >= image->dim.altura - limite || j < limite || j >= image->dim.largura - limite) 
-            {
-                int index = posicaoVetor(image->dim.largura, i, j);
-                image_blur->pixels[index].value = image->pixels[index].value;
-            }
+            int new_pixel = soma_kernel_gray(image, i, j, kernel_size);
+            
+            image_blur->pixels[vector_position(image_blur->dim.largura, i, j)].value = new_pixel;
         }
     }
-    
+
     return image_blur;
 }
+
+void initialize_history(History *history, ImageType type)
+{
+    FILE *initial_image;
+    if(type == RGB_)
+    {
+        initial_image = fopen("utils/input_image_example_RGB.txt", "r");
+        check_allocation(initial_image, "initial_image");
+
+        history->type = RGB_;
+        history->rgb_image = read_rgb_image(initial_image);
+    }
+    else
+    {
+        initial_image = fopen("utils/input_image_example_Gray.txt", "r");
+        check_allocation(initial_image, "initial_image");
+
+        history->gray_image = read_gray_image(initial_image);
+        history->type = GRAY_;
+    }
+    fclose(initial_image);
+}
+
+void initialize_random_effects(RandomList *rl, ImageType type) 
+{
+    FILE *initial_image;
+    if(type == RGB_) 
+    {
+        initial_image = fopen("utils/input_image_example_RGB.txt", "r");
+        check_allocation(initial_image, "initial_image");
+
+        rl->type = RGB_;
+        rl->image_rgb = read_rgb_image(initial_image);
+        rl->image_gray = NULL;
+    } 
+    else 
+    {
+        initial_image = fopen("utils/input_image_example_Gray.txt", "r");
+        check_allocation(initial_image, "initial_image");
+
+        rl->type = GRAY_;
+        rl->image_gray = read_gray_image(initial_image);
+        rl->image_rgb = NULL;
+    }
+    fclose(initial_image);
+}
+
 
 /////////////////////////////////////////////////////////////
 ///////// Manipulação por pixel para ImageRGB///////////////
@@ -624,7 +707,7 @@ void histogram_tile_rgb(const ImageRGB *image, PixelRGB *histogram, int x1, int 
     {
         for (int j = x2; j < x2 + tile_height && j < image->dim.altura; j++) 
         {
-            int index = posicaoVetor(image->dim.largura, j, i);
+            int index = vector_position(image->dim.largura, j, i);
             histogram[image->pixels[index].red].red++;
             histogram[image->pixels[index].green].green++;
             histogram[image->pixels[index].blue].blue++;
@@ -633,7 +716,7 @@ void histogram_tile_rgb(const ImageRGB *image, PixelRGB *histogram, int x1, int 
 }
 
 // RGB: Recebe o CDF e calcula o novo valor do pixel para a imagem
-void equalize_tile_rgb(const ImageRGB *image, ImageRGB *equalized,PixelRGB *CDF, int tile_width, int tile_height, int tile_increasew, int tile_increaseh) 
+void equalize_tile_rgb(const ImageRGB *image, ImageRGB *equalized, PixelRGB *CDF, int tile_width, int tile_height, int tile_increasew, int tile_increaseh) 
 {
     int cdf_min_r = min_cdf(&CDF[0].red);
     int cdf_min_g = min_cdf(&CDF[0].green);
@@ -643,7 +726,7 @@ void equalize_tile_rgb(const ImageRGB *image, ImageRGB *equalized,PixelRGB *CDF,
     {
         for (int y = 0; y < tile_width; y++) 
         {
-            int index = posicaoVetor(image->dim.largura, x + tile_increaseh, y + tile_increasew);
+            int index = vector_position(image->dim.largura, x + tile_increaseh, y + tile_increasew);
 
             int pixel_value_r = image->pixels[index].red;
             int pixel_value_g = image->pixels[index].green;
@@ -678,22 +761,52 @@ ImageRGB *clahe_rgb(const ImageRGB *image, int tile_width, int tile_height)
     return equalized_image;
 }
 
+int compare_pixel(const void *a, const void *b) 
+{
+    PixelRGB *pixelA = (PixelRGB *)a;
+    PixelRGB *pixelB = (PixelRGB *)b;
+    
+    int avgA = (pixelA->red + pixelA->green + pixelA->blue) / 3;
+    int avgB = (pixelB->red + pixelB->green + pixelB->blue) / 3;
+    
+    return avgA - avgB;
+}
+
+
+PixelRGB *sort_pixel(PixelRGB *pixel, int ind)
+{
+    qsort(pixel, ind, sizeof(PixelRGB), compare_pixel);
+
+    PixelRGB *result = (PixelRGB *)malloc(1 * sizeof(PixelRGB));
+    check_allocation(result, "sort_pixel");
+
+    *result = pixel[ind / 2];
+
+    return result;
+}
+
 // Calcula a soma dos tiles ao redor do central
 PixelRGB *soma_kernel_RGB(const ImageRGB *image, int index_i, int index_j, int kernel)
 {
-    int lin = index_i, col = index_j;
+    int lin = index_i, col = index_j, ind = 0;
 
-    PixelRGB *soma_pixel = alocar_pixel_RGB(1, 1);
+    PixelRGB *median_pixel = alocar_pixel_RGB(kernel, kernel);
+    check_allocation(median_pixel, "median_pixel");
 
     for(int i = 0; i < kernel; i++)
     {
         for(int j = 0; j < kernel; j++)
         {
-            int index = posicaoVetor(image->dim.largura, lin, col);
+            int index = vector_position(image->dim.largura, lin, col);
 
-            soma_pixel->blue += image->pixels[index].blue;
-            soma_pixel->red += image->pixels[index].red;
-            soma_pixel->green += image->pixels[index].green;
+            if(lin >= 0 && col >= 0)
+            {
+                median_pixel[ind].blue  = image->pixels[index].blue;
+                median_pixel[ind].red   = image->pixels[index].red;
+                median_pixel[ind].green = image->pixels[index].green;
+
+                ind += 1;
+            }
 
             if(i % 2 == 1) 
                 (j < i) ? col++ : lin++;
@@ -702,46 +815,294 @@ PixelRGB *soma_kernel_RGB(const ImageRGB *image, int index_i, int index_j, int k
         }
     }
 
-    return soma_pixel;
+    PixelRGB *result = sort_pixel(median_pixel, ind);
+    free_pixel_rgb(median_pixel);
+
+    return result;
 }
 
 // RGB: substitui cada pixel pela média dos pixels em sua vizinhança
 ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size)
 {
-    int limite = kernel_size / 2;
-    int divisor = kernel_size * kernel_size;
-
     ImageRGB *image_blur = create_image_rgb(image->dim.largura, image->dim.altura);
     
-    for (int i = limite; i < image->dim.largura - limite; i++)
+    for (int i = 0; i < image->dim.largura ; i++)
     {
-        for(int j = limite; j < image->dim.altura - limite; j++)
+        for(int j = 0; j < image->dim.altura ; j++)
         {
             PixelRGB *pixel = soma_kernel_RGB(image, i, j, kernel_size);
-            int index = posicaoVetor(image->dim.largura, i, j);
-            
-            image_blur->pixels[index].blue = pixel->blue / divisor;
-            image_blur->pixels[index].green = pixel->green / divisor;
-            image_blur->pixels[index].red = pixel->red / divisor;
-        }
-    }
+            int index = vector_position(image->dim.largura, i, j);
 
-    // pega os valores das bordas 
-    for (int i = 0; i < image->dim.largura; i++)
-    {
-        for(int j = 0; j < image->dim.altura; j++)
-        {
-            if (i < limite || i >= image->dim.altura - limite || j < limite || j >= image->dim.largura - limite) 
-            {
-                int index = posicaoVetor(image->dim.largura, i, j);
-                image_blur->pixels[index].green = image->pixels[index].green;
-                image_blur->pixels[index].blue = image->pixels[index].blue;
-                image_blur->pixels[index].red = image->pixels[index].red;
-            }
+            image_blur->pixels[index].blue = pixel[0].blue;
+            image_blur->pixels[index].green = pixel[0].green;
+            image_blur->pixels[index].red = pixel[0].red;
         }
+
     }
     
     return image_blur;
+}
+
+// int main()
+// {
+//     FILE *path = fopen("/home/alef/Linguagens/faculdade/Work1-DataStructures/utils/input_image_example_RGB.txt", "r");
+//     check_allocation(path, "path");
+
+//     ImageRGB *image = read_rgb_image(path);
+//     fclose(path);
+
+//     FILE *load = fopen("load.txt", "w");
+
+//     ImageRGB *blur = median_blur_RGB(image, 8);
+//     save_image_rgb(blur, load);
+
+//     fclose(load);
+// }
+
+
+int gray_or_rgb(int type)
+{
+    if(type == GRAY_)
+        return 1;
+    return 0;
+}
+
+// transforma uma imagem RGB ou GRAY em TXT
+void txt_from_image(const char* image_path, const char* output_path, int type) 
+{
+    PyObject *pName, *pModule, *pFunc;
+    PyObject *pArgs, *pValue;
+    
+
+    printf("%s %s %d\n", image_path, output_path, type);
+
+    // Inicializar o interpretador Python
+    // Py_Initialize();
+
+    PyRun_SimpleString("import sys");
+    PyRun_SimpleString("sys.path.append(\".\")");
+
+    // Nome do módulo Python (arquivo .py sem a extensão)
+    pName = PyUnicode_DecodeFSDefault("utils.image_utils");
+    pModule = PyImport_Import(pName);
+    Py_DECREF(pName);
+
+    if (pModule != NULL) 
+    {
+        // Nome da função a ser chamada
+
+        pFunc = PyObject_GetAttrString(pModule, "txt_from_image_gray");
+    
+        int is_gray = gray_or_rgb(type);
+
+        if (pFunc && PyCallable_Check(pFunc)) 
+        {
+            // Criar argumentos para a função Python
+            pArgs = PyTuple_Pack(3, PyUnicode_FromString(image_path), PyUnicode_FromString(output_path), PyLong_FromLong(is_gray));
+
+            // Chamar a função Python
+            PyObject *pValue = PyObject_CallObject(pFunc, pArgs);
+            Py_DECREF(pArgs);
+
+            if (pValue != NULL) 
+            {
+                printf("Chamou txt_from_image_gray com sucesso\n");
+                Py_DECREF(pValue);
+            } 
+            else 
+            {
+                Py_DECREF(pFunc);
+                Py_DECREF(pModule);
+                PyErr_Print();
+                fprintf(stderr, "Chamada da função txt_from_image_gray falhou\n");
+                return;
+            }
+        } 
+        else 
+        {
+            if (PyErr_Occurred())
+                PyErr_Print();
+
+            fprintf(stderr, "Não conseguiu encontrar a função txt_from_image_gray\n");
+        }
+        Py_XDECREF(pFunc);
+        Py_DECREF(pModule);
+    } 
+    else 
+    {
+        PyErr_Print();
+        fprintf(stderr, "Falha ao carregar o módulo image_processing\n");
+        return;
+    }
+
+    // Finalizar o interpretador Python
+    // Py_Finalize();
+}
+
+// Transforma um TXT em uma imagem RGB ou GRAY
+void image_from_txt(const char* txt_path, const char* output_path, int type) 
+{
+    PyObject *pName, *pModule, *pFunc;
+    PyObject *pArgs, *pValue;
+
+    // Inicializar o interpretador Python
+    // Py_Initialize();
+
+    PyRun_SimpleString("import sys");
+    PyRun_SimpleString("sys.path.append(\".\")");
+
+    // Nome do módulo Python (arquivo .py sem a extensão)
+    pName = PyUnicode_DecodeFSDefault("utils.image_utils");
+    pModule = PyImport_Import(pName);
+    Py_DECREF(pName);
+
+    if (pModule != NULL) 
+    {
+        printf("%s %s %d\n", txt_path, output_path, type);
+        // Nome da função a ser chamada
+        if(type == RGB_)
+            pFunc = PyObject_GetAttrString(pModule, "image_rgb_from_txt");
+        else
+            pFunc = PyObject_GetAttrString(pModule, "image_gray_from_txt");
+        // pFunc = PyObject_GetAttrString(pModule, "execute");
+
+        if (pFunc && PyCallable_Check(pFunc)) 
+        {
+            // Criar argumentos para a função Python
+            pArgs = PyTuple_Pack(2, PyUnicode_FromString(txt_path), PyUnicode_FromString(output_path));
+            // pArgs = PyTuple_Pack(0);
+
+            // Chamar a função Python
+            PyObject *pValue  = PyObject_CallObject(pFunc, pArgs);
+            Py_DECREF(pArgs);
+
+            if (pValue != NULL) 
+            {
+                printf("Chamou image_gray_from_txt com sucesso\n");
+                Py_DECREF(pValue);
+            } 
+            else
+            {
+                Py_DECREF(pFunc);
+                Py_DECREF(pModule);
+                PyErr_Print();
+                fprintf(stderr, "Chamada da função image_gray_from_txt falhou\n");
+                return;
+            }
+        } 
+        else 
+        {
+            if (PyErr_Occurred())
+                PyErr_Print();
+            fprintf(stderr, "Não conseguiu encontrar a função image_gray_from_txt\n");
+        }
+        Py_XDECREF(pFunc);
+        Py_DECREF(pModule);
+    } else 
+    {
+        PyErr_Print();
+        fprintf(stderr, "Falha ao carregar o módulo image_processing\n");
+        return;
+    }
+
+    // Finalizar o interpretador Python
+    // Py_Finalize();
+}
+
+void adjust_image_size(Image *image)
+{
+    int screenWidth = GetScreenWidth() * 0.90;
+    int screenHeight = GetScreenHeight() * 0.90;
+
+    if ((*image).width > screenWidth || (*image).height > screenHeight) 
+    {
+        float aspectRatio = (float)(*image).width / (float)(*image).height;
+        int newWidth = (*image).width;
+        int newHeight = (*image).height;
+
+        if ((*image).width > screenWidth) 
+        {
+            newWidth = screenWidth;
+            newHeight = newWidth / aspectRatio;
+        }
+        if (newHeight > screenHeight) 
+        {
+            newHeight = screenHeight;
+            newWidth = newHeight * aspectRatio;
+        }
+
+        ImageResize(&(*image), newWidth, newHeight);
+    }
+}
+
+// carrega a nova imagem que será mostrada na tela 
+void load_new_texture(Texture2D *texture, History *history, char *file_path, int mode)
+{
+    /// MANDAR PARA O CODIGO PYTHON 
+    if(mode == 1)
+    {
+        txt_from_image(file_path, TXT_PATH, history->type);
+        
+        FILE *load_txt = fopen(TXT_PATH, "r");
+
+        if(history->type == RGB_)  
+            history->rgb_image = read_rgb_image(load_txt);
+        else
+            history->gray_image = read_gray_image(load_txt);
+        
+        fclose(load_txt);
+    }
+
+        // Resize image if larger than screen dimensions
+    int screenWidth = GetScreenWidth() * 0.90;
+    int screenHeight = GetScreenHeight() * 0.90;
+
+    // Load new image and update texture
+    Image new_image = LoadImage(file_path);
+    
+    if(new_image.width > (GetScreenWidth() * 0.90) || new_image.height > (GetScreenHeight() * 0.90))
+        adjust_image_size(&new_image);
+
+    if(texture->id > 0) UpdateTexture(*texture, new_image.data) ;
+    else *texture = LoadTextureFromImage(new_image);
+
+    UnloadImage(new_image);
+}
+
+// carrega a nova imagem que será mostrada na tela 
+void load_new_texture_random(Texture2D *texture, RandomList *rl, char *file_path, int mode) 
+{
+    // Manda para o código Python se o modo for 1
+    if (mode == 1) 
+    {
+        txt_from_image(file_path, TXT_PATH, rl->type);
+        
+        FILE *load_txt = fopen(TXT_PATH, "r");
+
+        if (rl->type == RGB_)  
+            rl->image_rgb = read_rgb_image(load_txt);
+        else
+            rl->image_gray = read_gray_image(load_txt);
+        
+        fclose(load_txt);
+    }
+
+    // Redimensiona a imagem se for maior que as dimensões da tela
+    int screenWidth = GetScreenWidth() * 0.90;
+    int screenHeight = GetScreenHeight() * 0.90;
+
+    // Carrega a nova imagem e atualiza a textura
+    Image new_image = LoadImage(file_path);
+
+    if (new_image.width > screenWidth || new_image.height > screenHeight)
+        adjust_image_size(&new_image);
+
+    if (texture->id > 0)
+        UpdateTexture(*texture, new_image.data);
+    else
+        *texture = LoadTextureFromImage(new_image);
+
+    UnloadImage(new_image);
 }
 RandomList *random_efects(History *history, int width, int height){    
     srand(time(NULL));
@@ -805,12 +1166,515 @@ RandomList *random_efects(History *history, int width, int height){
                 
                 aux=aux->right;
 
-                }
-                return randomList;
+void random_effects(ImageType type, RandomList *rl)
+{    
+    srand(time(NULL));
+    RandomList *aux = rl;
+
+    int load_list = 0;
+
+    if (IsFileDropped())
+    {
+        if(aux) free_random(aux);
+        aux = alloc_random();
+        aux->type = type;
+        
+        FilePathList droppedFiles = LoadDroppedFiles();
+        
+        txt_from_image(droppedFiles.paths[0], TXT_PATH, type);
+        
+        FILE *file_path = fopen(TXT_PATH, "r");
+
+
+        if(type == RGB_)
+            aux->image_rgb = read_rgb_image(file_path);
+        else
+            aux->image_gray = read_gray_image(file_path);
+
+        free(file_path);
+        UnloadDroppedFiles(droppedFiles);    // Unload filepaths from memory
+    }
+
+    int esc = 0;
+    if(type)
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            aux->right = alloc_random();
+            esc = rand() % 5;
+            switch(esc)
+            {
+            case 0:
+                aux->right->image_rgb = median_blur_RGB(aux->image_rgb, 8);
+                break;
+            case 1:
+                aux->right->image_rgb = clahe_rgb(aux->image_rgb, aux->image_rgb->dim.largura, aux->image_rgb->dim.altura);
+                break;
+            case 2: 
+                aux->right->image_rgb = flip_vertical_rgb(aux->image_rgb);
+                break;
+            case 3: 
+                aux->right->image_rgb = flip_horizontal_rgb(aux->image_rgb);
+                break;
+            case 4:
+                aux->right->image_rgb = transpose_rgb(aux->image_rgb);
+            default:
+                break;
             }
+            aux = aux->right;
+            aux->type = type;
+        }
+    }
+    else
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            aux->right = alloc_random();
+            esc = rand() % 5;
+            switch(esc)
+            {
+            case 0:
+                aux->right->image_gray = median_blur_gray(aux->image_gray, 8);
+                break;
+            case 1:
+                aux->right->image_gray = clahe_gray(aux->image_gray, aux->image_gray->dim.largura, aux->image_gray->dim.altura);
+                break;
+            case 2: 
+                aux->right->image_gray = flip_vertical_gray(aux->image_gray);
+                break;
+            case 3: 
+                aux->right->image_gray = flip_horizontal_gray(aux->image_gray);
+                break;
+            case 4:
+                aux->right->image_gray = transpose_gray(aux->image_gray);
+            default:
+                break;
+            }
+            aux = aux->right;
+            aux->type = type;
+        }
+    }
+    aux->right = NULL;
+}
+
+//////////////////////// screens //////////////////////////
+MenuScreen current_screen = MAIN_MENU;
+// tela principal relacionada as ações de historico
+void main_menu_screen(History **history, bool *textureReload, ImageType actual_type, int currentProcess,Texture2D *texture, int mouseHoverRec, Rectangle *recs_main)
+{
+    if (IsFileDropped())
+    {
+        free_history(*history);
+
+        *history = allocate_history();
+        (*history)->type = actual_type;
+        
+        FilePathList droppedFiles = LoadDroppedFiles();
+        char *file_path = (char *)malloc(100 * sizeof(char));
+
+        if(droppedFiles.count > 0)
+            strcpy(file_path, droppedFiles.paths[0]);
+
+        UnloadDroppedFiles(droppedFiles);    // Unload filepaths from memory
+        
+        load_new_texture(texture, *history, file_path, 1);
+        *textureReload = false;
+        free(file_path);
+    }
+
+    if (*textureReload && currentProcess > 0)
+    {
+        FILE *load_txt = fopen(TXT_PATH, "w");
+        void *new_image;
+
+        switch(currentProcess)
+        {
+            case BLUR:
+                if((*history)->type == RGB_)
+                {
+                    new_image = median_blur_RGB((*history)->rgb_image, 12);
+                    save_image_rgb((ImageRGB *)new_image, load_txt);
+                }
+                else
+                {
+                    new_image = median_blur_gray((*history)->gray_image, 12);
+                    save_image_gray((ImageGray *)new_image, load_txt);
+                }
                 
+                *history = add_image(*history, new_image);
+                break;
+            case EQUALIZER:
+                if((*history)->type == RGB_)
+                {
+                    new_image = clahe_rgb((*history)->rgb_image, (*history)->rgb_image->dim.largura, (*history)->rgb_image->dim.altura);
+                    save_image_rgb((ImageRGB *)new_image, load_txt);
+                }
+                else
+                {
+                    new_image = clahe_gray((*history)->gray_image, (*history)->gray_image->dim.largura, (*history)->gray_image->dim.altura);
+                    save_image_gray((ImageGray *)new_image, load_txt);
+                }
+
+                *history = add_image(*history, new_image); 
+                ///////////////
+                break;
+            case VERTICAL:                
+                if((*history)->type == RGB_)
+                {
+                    new_image = flip_vertical_rgb((*history)->rgb_image);
+                    save_image_rgb((ImageRGB *)new_image, load_txt);
+                }
+                else
+                {
+                    new_image = flip_vertical_gray((*history)->gray_image);
+                    save_image_gray((ImageGray *)new_image, load_txt);
+                }
+
+                *history = add_image(*history, new_image); 
+                ///////////////
+                break;
+            case HORIZONTAL: 
+                if((*history)->type == RGB_)
+                {
+                    new_image = flip_horizontal_rgb((*history)->rgb_image);
+                    save_image_rgb((ImageRGB *)new_image, load_txt);
+                }
+                else
+                {
+                    new_image = flip_horizontal_gray((*history)->gray_image);
+                    save_image_gray((ImageGray *)new_image, load_txt);
+                }
+
+                *history = add_image(*history, new_image);
+                ///////////////
+                break;
+            case TRANSPOSE:
+                if((*history)->type == RGB_)
+                {
+                    new_image = transpose_rgb((*history)->rgb_image);
+                    save_image_rgb((ImageRGB *)new_image, load_txt);
+                }
+                else
+                {
+                    new_image = transpose_gray((*history)->gray_image);
+                    save_image_gray((ImageGray *)new_image, load_txt);
+                }
+
+                *history = add_image(*history, new_image); 
+                ///////////////
+                break;
+            case UNDO:
+                // printf("%d\n", (*history)->type);
+                if((*history)->left || (*history)->right) 
+                {
+                    *history = back_image(*history, 1);
+                    ((*history)->type == RGB_) ? 
+                        save_image_rgb((*history)->rgb_image, load_txt) : save_image_gray((*history)->gray_image, load_txt);
+
+                    image_from_txt(TXT_PATH, "image.png", (*history)->type);
+                    load_new_texture(texture, *history, "image.png", 0);
+                }
+                ///////////////
+                break;
+            case NEXT:
+                if((*history)->right) 
+                {
+                    *history = next_image(*history);
+                    ((*history)->type == RGB_) ? 
+                        save_image_rgb((*history)->rgb_image, load_txt) : save_image_gray((*history)->gray_image, load_txt);
+
+                    image_from_txt(TXT_PATH, "image.png", (*history)->type);
+                    load_new_texture(texture, *history, "image.png", 0);
+                } 
+                ///////////////
+                break;
+            case PREVIOUS:
+                if((*history)->left) 
+                {
+                    *history = back_image(*history, 0);
+                    ((*history)->type == RGB_) ? 
+                        save_image_rgb((*history)->rgb_image, load_txt) : save_image_gray((*history)->gray_image, load_txt);
+
+                    image_from_txt(TXT_PATH, "image.png", (*history)->type);
+                    load_new_texture(texture, *history, "image.png", 0);
+                } 
+                break;
+            case RANDOM_EFFECTS:
+                currentProcess = NONE;
+                current_screen = RANDOM_MENU;
+                break;
+            default: 
+                break;
         }
 
+        if(currentProcess < 6)
+        {
+            // transforma o history em png e atualiza a textura a ser mostrada
+            image_from_txt(TXT_PATH, "image.png", (*history)->type);
+            load_new_texture(texture, *history, "image.png", 0);
+        }
 
+        *textureReload = false;
+        remove("image.png");
+        fclose(load_txt);
+    }
+}
 
+// tela para as ações relacionadas a randomlist
+RandomList *random_menu_screen(RandomList **rl, Texture2D *texture, ImageType type, int *current_proc, int mouse_hover, bool *textureReload)
+{
+    switch(*current_proc)
+    {
+    case RANDOM_NEXT:
+        if((*rl)->right && *textureReload)
+        {   
+            FILE *file_path = fopen(TXT_PATH, "w");
+            check_allocation(file_path, "file path");
+
+            (*rl) = (*rl)->right;
+            ((*rl)->type == RGB_) ? 
+                save_image_rgb((*rl)->image_rgb, file_path) : save_image_gray((*rl)->image_gray, file_path);
+
+            image_from_txt(TXT_PATH, IMAGE_PATH, (*rl)->type);
+
+            // Load new image and update texture
+            Image new_image = LoadImage(IMAGE_PATH);
+            if(new_image.width > (GetScreenWidth() * 0.90) || new_image.height > (GetScreenHeight() * 0.90))
+                adjust_image_size(&new_image);
+
+            if(texture->id > 0) UpdateTexture(*texture, new_image.data);
+            else *texture = LoadTextureFromImage(new_image);
+
+            UnloadImage(new_image);
+            fclose(file_path);
+            *textureReload = false;
+            remove(IMAGE_PATH);
+        }
+        break;
+    case NEW_FIVE:
+        if(*textureReload)
+        {
+            RandomList *new = alloc_random(), *aux = (*rl);
+            while(aux->right) aux = aux->right;            
+            new->type = type;
+
+            if(type == RGB_) new->image_rgb = (*rl)->image_rgb;
+            else new->image_gray = (*rl)->image_gray;
+
+            random_effects(type, new);
+            aux->right = new->right;
+            printf("NEW FIVE\n");
+            *textureReload = false;
+            current_proc = NONE;
+        }
+        break;
+    case BACK_MENU:
+        *current_proc = NONE;
+        current_screen = MAIN_MENU;
+        break;
+    default:
+        break;
+    }
+
+    return (*rl);
+}
+
+void init()
+{
+    Py_Initialize();
+    const int screenWidth = 700;
+    const int screenHeight = 450;
+    char load_type[] = "DROPPED FILE TYPE - RGB:  ";
+    ///////////////////////////////////////////////////////////
+    ImageType actual_type = RGB_;
+    ///////////////////////////////////////////////////////////
+    Texture2D texture, texture_random, texture_rgb, texture_gray, random_gray, random_rgb;
+    ///////////////////////////////////////////////////////////
+    History *history_gray = allocate_history();
+    History *history_rgb = allocate_history();
+    RandomList *randomlist_gray = alloc_random(); 
+    RandomList *randomlist_rgb = alloc_random(); 
+    ///////////////////////////////////////////////////////////
+    InitWindow(screenWidth, screenHeight, "PROCESSAMENTO DE IMAGENS");
+    ///////////////////////////////////////////////////////////
+    initialize_random_effects(randomlist_rgb, RGB_);
+    initialize_random_effects(randomlist_gray, GRAY_);
+    ///////////////////////////////////////////////////////////
+    initialize_history(history_rgb, RGB_);
+    initialize_history(history_gray, GRAY_);
+    ///////////////////////////////////////////////////////////
+    random_effects(RGB_, randomlist_rgb);
+    random_effects(GRAY_, randomlist_gray);
+    ///////////////////////////////////////////////////////////
+    load_new_texture(&texture_rgb, history_rgb, LENA_RGB, 0);
+    load_new_texture(&texture_gray, history_gray, LENA_GRAY, 0);
+    load_new_texture_random(&random_rgb, randomlist_rgb, LENA_RGB, 0);
+    load_new_texture_random(&random_gray, randomlist_gray, LENA_GRAY, 0);
+    ///////////////////////////////////////////////////////////
+    texture = texture_rgb;
+    texture_random = random_rgb;
+    ///////////////////////////////////////////////////////////
+    int currentProcess = NONE;
+    bool textureReload = false;
+
+    // fazendo os retangulos de click
+    Rectangle recs_main[NUM_PROCESSES] = {0};
+    Rectangle recs_random[PROCESSES_RANDOM] = {0};
+    
+    int mouseHoverRec = -1;
+    ///////////////////////////////////////
+
+    for (int i = 0; i < NUM_PROCESSES; i++) 
+        recs_main[i] = (Rectangle){ 40.0f, (float)(50 + 32*i), 150.0f, 30.0f };
+
+    for(int i = 0; i < PROCESSES_RANDOM; i++)
+        recs_random[i] = (Rectangle){ 40.0f, (float)(50 + 32*i), 150.0f, 30.0f };
+ 
+    SetTargetFPS(60);
+  
+    // Main game loop
+    while (!WindowShouldClose())    // Detect window close button or ESC key
+    {
+        // Update
+        //----------------------------------------------------------------------------------
+        switch(current_screen)
+        {
+            case MAIN_MENU: 
+                if(actual_type == RGB_)
+                    main_menu_screen(&history_rgb, &textureReload, actual_type, currentProcess, &texture, mouseHoverRec, recs_main);
+                else 
+                    main_menu_screen(&history_gray, &textureReload, actual_type, currentProcess, &texture, mouseHoverRec, recs_main); 
+                break;
+            case RANDOM_MENU: 
+                if(actual_type == RGB_)
+                    random_menu_screen(&randomlist_rgb, &texture_random, actual_type, &currentProcess, mouseHoverRec, &textureReload); 
+                else
+                    random_menu_screen(&randomlist_gray, &texture_random, actual_type, &currentProcess, mouseHoverRec, &textureReload); 
+                break;
+            default: break;
+        }
+
+ 
+        if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+        {
+            if(actual_type == RGB_)
+            {
+                actual_type = GRAY_;
+                texture = texture_gray;
+                texture_random = random_gray;
+                strcpy(load_type, "DROPPED FILE TYPE - GRAY:");
+            }
+            else
+            {
+                actual_type = RGB_;
+                texture = texture_rgb;
+                texture_random = random_rgb;
+                strcpy(load_type, "DROPPED FILE TYPE - RGB:");
+            }
+        }
+ 
+        // Mouse toggle group logic
+        if(current_screen == MAIN_MENU)
+        {
+            for (int i = 0; i < NUM_PROCESSES; i++)
+            {
+                if (CheckCollisionPointRec(GetMousePosition(), recs_main[i]))
+                {
+                    mouseHoverRec = i;
+
+                    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+                    {
+                        currentProcess = i;
+                        textureReload = true;
+                    }
+                    break;
+                }
+                else mouseHoverRec = -1;
+            }
+        }
+        else
+        {
+            for (int i = 0; i < PROCESSES_RANDOM; i++)
+            {
+                if (CheckCollisionPointRec(GetMousePosition(), recs_random[i]))
+                {
+                    mouseHoverRec = i;
+
+                    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+                    {
+                        currentProcess = i;
+                        textureReload = true;
+                    }
+                    break;
+                }
+                else mouseHoverRec = -1;
+            }
+        }
+
+        //----------------------------------------------------------------------------------
+        // Draw
+        //----------------------------------------------------------------------------------
+        BeginDrawing();
+
+            switch(current_screen)
+            {
+            case MAIN_MENU:
+                ClearBackground(RAYWHITE);
+
+                DrawText(load_type, 40, 30, 10, DARKGRAY);
+
+                // Draw rectangles
+                for (int i = 0; i < NUM_PROCESSES; i++)
+                {
+                    DrawRectangleRec(recs_main[i], ((i == currentProcess) || (i == mouseHoverRec)) ? SKYBLUE : LIGHTGRAY);
+                    DrawRectangleLines((int)recs_main[i].x, (int) recs_main[i].y, (int) recs_main[i].width, (int) recs_main[i].height, ((i == currentProcess) || (i == mouseHoverRec)) ? BLUE : GRAY);
+                    DrawText( processText[i], (int)( recs_main[i].x + recs_main[i].width/2 - MeasureText(processText[i], 10)/2), (int) recs_main[i].y + 11, 10, ((i == currentProcess) || (i == mouseHoverRec)) ? DARKBLUE : DARKGRAY);
+                }
+
+                DrawTexture(texture, screenWidth - texture.width - 60, screenHeight/2 - texture.height/2, WHITE);
+                DrawRectangleLines(screenWidth - texture.width - 60, screenHeight/2 - texture.height/2, texture.width, texture.height, BLACK);
+                break;
+            case RANDOM_MENU:
+                ClearBackground(RAYWHITE);
+                DrawText(load_type, 40, 30, 10, DARKGRAY);
+            
+                for(int i = 0; i < PROCESSES_RANDOM; i++)
+                {
+                    DrawRectangleRec(recs_random[i], ((i == currentProcess) || (i == mouseHoverRec)) ? SKYBLUE : LIGHTGRAY);
+                    DrawRectangleLines((int)recs_random[i].x, (int) recs_random[i].y, (int) recs_random[i].width, (int) recs_random[i].height, ((i == currentProcess) || (i == mouseHoverRec)) ? BLUE : GRAY);
+                    DrawText( randomText[i], (int)( recs_random[i].x + recs_random[i].width/2 - MeasureText(randomText[i], 10)/2), (int) recs_random[i].y + 11, 10, ((i == currentProcess) || (i == mouseHoverRec)) ? DARKBLUE : DARKGRAY);
+                }
+                
+                DrawTexture(texture_random, screenWidth - texture_random.width - 60, screenHeight/2 - texture_random.height/2, WHITE);
+                DrawRectangleLines(screenWidth - texture_random.width - 60, screenHeight/2 - texture_random.height/2, texture_random.width, texture_random.height, BLACK);
+                break;
+            default:
+                break;
+            }
+
+        EndDrawing();
+        //----------------------------------------------------------------------------------
+    }
+
+    // De-Initialization
+    //--------------------------------------------------------------------------------------
+    // Liberar texturas
+    UnloadTexture(texture);
+    UnloadTexture(texture_random);
+    UnloadTexture(texture_rgb);
+    UnloadTexture(texture_gray);
+    UnloadTexture(random_gray);
+    UnloadTexture(random_rgb);
+    // Liberar históricos
+    free_history(history_gray);
+    free_history(history_rgb);
+    // Liberar listas aleatórias
+    free_random(randomlist_gray);
+    free_random(randomlist_rgb);
+
+    // Fechar a janela do Raylib
+    CloseWindow();
+    Py_Finalize();
+    //--------------------------------------------------------------------------------------
+}
 
