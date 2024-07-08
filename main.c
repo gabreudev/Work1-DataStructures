@@ -6,7 +6,7 @@
 // #include "image.c"
 #include <Python.h>
 
-MenuScreen current_screen = MAIN_MENU;
+MenuScreen current_screen = RANDOM_MENU;
 
 void initialize_history(History *history, ImageType type)
 {
@@ -283,15 +283,21 @@ RandomList *random_menu_screen(RandomList **rl, Texture2D *texture, ImageType ty
         }
         break;
     case NEW_FIVE:
-        RandomList *new_random = alloc_random(), *aux = (*rl);
-        initialize_random_effects(new_random, type);
+        if(*textureReload)
+        {
+            RandomList *new = alloc_random(), *aux = (*rl);
+            while(aux->right) aux = aux->right;            
+            new->type = type;
 
-        while(aux->right) aux = aux->right;
-        aux->right = new_random;
+            if(type == RGB_) new->image_rgb = (*rl)->image_rgb;
+            else new->image_gray = (*rl)->image_gray;
 
-        // if(type == RGB_) load_new_texture_random(texture, new_random, LENA_RGB, 0);
-        // else load_new_texture_random(texture, new_random, LENA_GRAY, 0);
-        *textureReload = false;
+            random_effects(type, new);
+            aux->right = new->right;
+            printf("NEW FIVE\n");
+            *textureReload = false;
+            current_proc = NONE;
+        }
         break;
     case BACK_MENU:
         *current_proc = NONE;
@@ -310,26 +316,27 @@ int main(void)
     const int screenWidth = 700;
     const int screenHeight = 450;
     char load_type[] = "DROPPED FILE TYPE - RGB:  ";
+    ///////////////////////////////////////////////////////////
     ImageType actual_type = RGB_;
-    // Texture2D texture, texture_random;
+    ///////////////////////////////////////////////////////////
     Texture2D texture, texture_random, texture_rgb, texture_gray, random_gray, random_rgb;
-    // History *history = allocate_history();
+    ///////////////////////////////////////////////////////////
     History *history_gray = allocate_history();
     History *history_rgb = allocate_history();
     RandomList *randomlist_gray = alloc_random(); 
     RandomList *randomlist_rgb = alloc_random(); 
-    
+    ///////////////////////////////////////////////////////////
     InitWindow(screenWidth, screenHeight, "PROCESSAMENTO DE IMAGENS");
-    // initialize_random_effects(randomlist, actual_type);
+    ///////////////////////////////////////////////////////////
     initialize_random_effects(randomlist_rgb, RGB_);
     initialize_random_effects(randomlist_gray, GRAY_);
-    // initialize_history(history, actual_type);
+    ///////////////////////////////////////////////////////////
     initialize_history(history_rgb, RGB_);
     initialize_history(history_gray, GRAY_);
-    // random_effects(actual_type, randomlist);
+    ///////////////////////////////////////////////////////////
     random_effects(RGB_, randomlist_rgb);
     random_effects(GRAY_, randomlist_gray);
-    // load_new_texture(&texture, history, LENA_RGB, 0);
+    ///////////////////////////////////////////////////////////
     load_new_texture(&texture_rgb, history_rgb, LENA_RGB, 0);
     load_new_texture(&texture_gray, history_gray, LENA_GRAY, 0);
     load_new_texture_random(&random_rgb, randomlist_rgb, LENA_RGB, 0);
@@ -498,7 +505,6 @@ int main(void)
 
     // Fechar a janela do Raylib
     CloseWindow();
-               // Close window and OpenGL context
     Py_Finalize();
     //--------------------------------------------------------------------------------------
 
