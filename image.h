@@ -81,7 +81,7 @@ static const char *processText[] = {
 static const char *randomText[] = {
     "NO PROCESSING",
     "NEXT >",
-    "NEW FIVE",
+    "MORE FIVE",
     "BACK TO EDIT MENU"
 };
 
@@ -100,7 +100,6 @@ typedef struct randomList {
     ImageType type;
     struct randomList *right;   
 } RandomList;
-
 
 
 // Operações de ERRO
@@ -211,6 +210,11 @@ PixelRGB *soma_kernel_RGB(const ImageRGB *image, int index_i, int index_j, int k
 // RGB: substitui cada pixel pela média dos pixels em sua vizinhança
 ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size);
 
+// iniicializa o historico com o tipo de imagem desejado
+void initialize_history(History *history, ImageType type);
+// iniicializa a randomlist com o tipo de imagem desejado
+void initialize_random_effects(RandomList *rl, ImageType type);
+
 //////////////////// PYTHON STUFF ////////////////////////////////////////
 
 // eh menino ou menina 
@@ -221,12 +225,23 @@ void txt_from_image(const char* image_path, const char* output_path, int type);
 void image_from_txt(const char* txt_path, const char* output_path, int type);
 // ajusta o tamanho da imagem a ser mostrada na interface 
 void adjust_image_size(Image *image);
+
+/////////////////// TEXTURES ///////////////////////////////////////
+
 // carrega a nova imagem que será mostrada na tela 
 void load_new_texture(Texture2D *texture, History *history, char *file_path, int mode);
+// carrega a nova imagem que será mostrada na tela
+void load_new_texture_random(Texture2D *texture, RandomList *rl, char *file_path, int mode);
 
 /////////////////////// RANDOM STUFF //////////////////////////////////////
 
 // aplica 5 efeitos aleatorios para uma imagem 
 void random_effects(ImageType type, RandomList *rl);
+
+/////////////////// SCREENS ///////////////////
+void main_menu_screen(History **history, bool *textureReload, ImageType actual_type, int currentProcess,Texture2D *texture, int mouseHoverRec, Rectangle *recs_main);
+RandomList *random_menu_screen(RandomList **rl, Texture2D *texture, ImageType type, int *current_proc, int mouse_hover, bool *textureReload);
+// inicializa todo o programa
+void init(void);
 
 #endif // IMAGE_H
