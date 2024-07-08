@@ -68,7 +68,9 @@ def image_rgb_from_txt(txt_path, output_path):
 
 # image_gray_from_txt("Work1-DataStructures/utils/input_image_example_Gray.txt", "saida.png")
 # image_rgb_from_txt("Work1-DataStructures/LENA_BLUR.txt", "saida_rgb.png")
+
 # image_rgb_from_txt("Work1-DataStructures/LENA_EQUALIZADA.txt", "saida_rgb.png")
+
 # image_rgb_from_txt("Work1-DataStructures/load.txt", "saida_rgb.png")
 
 # image_gray_from_txt("Work1-DataStructures/utils/input_image_example_Gray.txt", "lena_gray.png");
@@ -80,3 +82,4 @@ def image_rgb_from_txt(txt_path, output_path):
 #     image_rgb_from_txt("load.txt", "image.png")
 
 # txt_from_image_gray("/home/alef/Downloads/logo-corinthians-2048.png" , "load.txt", gray=False)
+
