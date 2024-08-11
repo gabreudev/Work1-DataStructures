@@ -75,7 +75,6 @@ def image_rgb_from_txt(txt_path, output_path):
 
 # image_rgb_from_txt("Work1-DataStructures/load.txt", "image.jpeg")
 
-
 # def execute():
 #     image_rgb_from_txt("load.txt", "image.png")
 
