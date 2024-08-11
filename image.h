@@ -81,7 +81,7 @@ static const char *processText[] = {
 static const char *randomText[] = {
     "NO PROCESSING",
     "NEXT >",
-    "MORE FIVE",
+    "NEW FIVE",
     "BACK TO EDIT MENU"
 };
 

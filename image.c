@@ -1052,21 +1052,51 @@ void load_new_texture(Texture2D *texture, History *history, char *file_path, int
         
         fclose(load_txt);
     }
-
-        // Resize image if larger than screen dimensions
+    // Resize image if larger than screen dimensions
     int screenWidth = GetScreenWidth() * 0.90;
     int screenHeight = GetScreenHeight() * 0.90;
 
     // Load new image and update texture
+    // Image new_image;
     Image new_image = LoadImage(file_path);
-    
+
+    // Color color[texture->height * texture->width];
+    // if(history->type == RGB_)
+    // {
+    //     for(int i = 0; i < texture->height * texture->width; i++)
+    //     {
+    //         color[i].a = 255;
+    //         color[i].r = history->rgb_image->pixels->red;
+    //         color[i].b = history->rgb_image->pixels->blue;
+    //         color[i].g = history->rgb_image->pixels->green;
+    //     }
+    // }
+    // else
+    // {
+    //     for(int i = 0; i < texture->height * texture->width; i++)
+    //     {
+    //         color[i].a = 255;
+    //         color[i].r = history->gray_image->pixels->value;
+    //         color[i].b = history->gray_image->pixels->value;
+    //         color[i].g = history->gray_image->pixels->value;
+    //     }
+    // }
+
+    // new_image.format = texture->format;
+    // new_image.height = texture->height;
+    // new_image.width = texture->width;
+    // new_image.mipmaps = texture->mipmaps;
+    // new_image.data = color;
+
     if(new_image.width > (GetScreenWidth() * 0.90) || new_image.height > (GetScreenHeight() * 0.90))
         adjust_image_size(&new_image);
 
-    if(texture->id > 0) UpdateTexture(*texture, new_image.data) ;
-    else *texture = LoadTextureFromImage(new_image);
+    if(texture->id > 0) 
+        UpdateTexture(*texture, new_image.data) ;
+    else *texture = 
+        LoadTextureFromImage(new_image);
 
-    UnloadImage(new_image);
+    // UnloadImage(new_image);
 }
 
 // carrega a nova imagem que será mostrada na tela 
@@ -1263,23 +1293,18 @@ MenuScreen current_screen = MAIN_MENU;
 void main_menu_screen(History **history, bool *textureReload, ImageType actual_type, int currentProcess,Texture2D *texture, int mouseHoverRec, Rectangle *recs_main)
 {
     if (IsFileDropped())
-    {
-        free_history(*history);
-
-        *history = allocate_history();
-        (*history)->type = actual_type;
-        
+    {        
         FilePathList droppedFiles = LoadDroppedFiles();
         char *file_path = (char *)malloc(100 * sizeof(char));
 
         if(droppedFiles.count > 0)
             strcpy(file_path, droppedFiles.paths[0]);
 
-        UnloadDroppedFiles(droppedFiles);    // Unload filepaths from memory
-        
-        load_new_texture(texture, *history, file_path, 1);
-        *textureReload = false;
-        free(file_path);
+        UnloadDroppedFiles(droppedFiles);    
+
+        Image image = LoadImage(file_path);
+        adjust_image_size(&image);
+        *texture = LoadTextureFromImage(image);
     }
 
     if (*textureReload && currentProcess > 0)
@@ -1410,8 +1435,8 @@ void main_menu_screen(History **history, bool *textureReload, ImageType actual_t
         if(currentProcess < 6)
         {
             // transforma o history em png e atualiza a textura a ser mostrada
-            image_from_txt(TXT_PATH, "image.png", (*history)->type);
-            load_new_texture(texture, *history, "image.png", 0);
+            image_from_txt(TXT_PATH, IMAGE_PATH, (*history)->type);
+            load_new_texture(texture, *history, IMAGE_PATH, 0);
         }
 
         *textureReload = false;
@@ -1454,22 +1479,35 @@ RandomList *random_menu_screen(RandomList **rl, Texture2D *texture, ImageType ty
     case NEW_FIVE:
         if(*textureReload)
         {
-            RandomList *new = alloc_random(), *aux = (*rl);
-            while(aux->right) aux = aux->right;            
+            // RandomList *new = alloc_random(), *aux = (*rl);
+            // while(aux->right) aux = aux->right;            
+            // new->type = type;
+
+            // if(type == RGB_) new->image_rgb = (*rl)->image_rgb;
+            // else new->image_gray = (*rl)->image_gray;
+
+            // random_effects(type, new);
+            // aux->right = new->right;
+            // printf("NEW FIVE\n");
+            // *textureReload = false;
+            // current_proc = NONE;
+
+            RandomList *new = alloc_random();
             new->type = type;
-
-            if(type == RGB_) new->image_rgb = (*rl)->image_rgb;
-            else new->image_gray = (*rl)->image_gray;
-
+            initialize_random_effects(new, type);
             random_effects(type, new);
-            aux->right = new->right;
+
             printf("NEW FIVE\n");
             *textureReload = false;
             current_proc = NONE;
+            free_random((*rl));
+            (*rl) = new;
+            if(type == GRAY_) load_new_texture_random(texture, new, LENA_GRAY, 0);
+            else load_new_texture_random(texture, new, LENA_RGB, 0);
         }
         break;
     case BACK_MENU:
-        *current_proc = NONE;
+        *current_proc = NONE; 
         current_screen = MAIN_MENU;
         break;
     default:
@@ -1523,7 +1561,6 @@ void init()
     
     int mouseHoverRec = -1;
     ///////////////////////////////////////
-
     for (int i = 0; i < NUM_PROCESSES; i++) 
         recs_main[i] = (Rectangle){ 40.0f, (float)(50 + 32*i), 150.0f, 30.0f };
 
@@ -1619,12 +1656,12 @@ void init()
             switch(current_screen)
             {
             case MAIN_MENU:
-                ClearBackground(RAYWHITE);
+                ClearBackground(WHITE);
 
                 DrawText(load_type, 40, 30, 10, DARKGRAY);
 
                 // Draw rectangles
-                for (int i = 0; i < NUM_PROCESSES; i++)
+                for (int i = 1; i < NUM_PROCESSES; i++)
                 {
                     DrawRectangleRec(recs_main[i], ((i == currentProcess) || (i == mouseHoverRec)) ? SKYBLUE : LIGHTGRAY);
                     DrawRectangleLines((int)recs_main[i].x, (int) recs_main[i].y, (int) recs_main[i].width, (int) recs_main[i].height, ((i == currentProcess) || (i == mouseHoverRec)) ? BLUE : GRAY);
@@ -1638,7 +1675,7 @@ void init()
                 ClearBackground(RAYWHITE);
                 DrawText(load_type, 40, 30, 10, DARKGRAY);
             
-                for(int i = 0; i < PROCESSES_RANDOM; i++)
+                for(int i = 1; i < PROCESSES_RANDOM; i++)
                 {
                     DrawRectangleRec(recs_random[i], ((i == currentProcess) || (i == mouseHoverRec)) ? SKYBLUE : LIGHTGRAY);
                     DrawRectangleLines((int)recs_random[i].x, (int) recs_random[i].y, (int) recs_random[i].width, (int) recs_random[i].height, ((i == currentProcess) || (i == mouseHoverRec)) ? BLUE : GRAY);
@@ -1658,6 +1695,7 @@ void init()
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
+    remove("load.txt");
     // Liberar texturas
     UnloadTexture(texture);
     UnloadTexture(texture_random);
@@ -1671,10 +1709,10 @@ void init()
     // Liberar listas aleatórias
     free_random(randomlist_gray);
     free_random(randomlist_rgb);
-
     // Fechar a janela do Raylib
     CloseWindow();
     Py_Finalize();
     //--------------------------------------------------------------------------------------
 }
+
 
