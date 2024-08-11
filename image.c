@@ -245,6 +245,15 @@ History *next_image(History *history)
 
     return history->right;
 }
+// dunção para avancar para a proxima imagem da lista randômica
+RandomList *next_random_image(RandomList *history)
+{
+    if(!history || !history->right)
+        return history;
+
+    return history->right;
+}
+
 
 // função de navegação pelo histórico, permitindo ir para versões específicas da imagem.
 History *browse_history(History *history, int version)
@@ -440,29 +449,35 @@ ImageGray *transpose_gray(const ImageGray *image)
 //////////////////////////////////////////////////////////////////
 /////////////// Operações para ImageRGB //////////////////////////
 ImageRGB *flip_vertical_rgb(const ImageRGB *image)
+
 {
     ImageRGB *newImage = create_image_rgb(image->dim.altura, image->dim.largura);
+
 
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
+
             newImage->pixels[vector_position(image->dim.largura, i, j)] = image->pixels[vector_position(image->dim.largura, image->dim.altura - 1 - i, j)];
+
         }
     }
-
     return newImage;
 }
 
 ImageRGB *flip_horizontal_rgb(const ImageRGB *image)
 {
+
     ImageRGB *newImage = create_image_rgb(image->dim.altura, image->dim.largura);
  
     for (int i = 0; i < image->dim.altura; i++)
     {
         for (int j = 0; j < image->dim.largura; j++)
         {
+
             newImage->pixels[vector_position(newImage->dim.largura, i, j)] = image->pixels[vector_position(image->dim.largura, i, image->dim.largura-1-j)];
+
         }
     }
 
@@ -1119,7 +1134,67 @@ void load_new_texture_random(Texture2D *texture, RandomList *rl, char *file_path
 
     UnloadImage(new_image);
 }
+RandomList *random_efects(History *history, int width, int height){    
+    srand(time(NULL));
+    RandomList *randomList;
+    randomList->image = history->image;
+    RandomList *aux = randomList;
+    if (history->type==GRAY)
+        {
+            
+            for (int i = 0; i < 5; i++)
+            {
+                int chosed = rand() % 5;
 
+                switch (chosed)
+                {
+                case 0:
+                    aux->right->image = flip_horizontal_gray(aux->image);
+                    break;
+                case 1:
+                    aux->right->image = flip_vertical_gray(aux->image);
+                    break;
+                case 2:
+                    aux->right->image = transpose_gray(aux->image);
+                    break;
+                case 3:
+                    aux->right->image = median_blur_gray(aux->image, 8);
+                    break;
+                case 4:
+                    aux->right->image = clahe_gray(aux->image,width, height);
+                    break;
+
+                aux=aux->right;
+                
+                }
+            }
+            return randomList;
+        }
+
+            
+            for (int i = 0; i < 5; i++)
+            {
+                int chosed = rand() % 5;
+
+                switch (chosed)
+                {
+                case 0:
+                    aux->right->image = flip_horizontal_rgb(aux->image);
+                    break;
+                case 1:
+                    aux->right->image = flip_vertical_rgb(aux->image);
+                    break;
+                case 2:
+                    aux->right->image = transpose_rgb(aux->image);
+                    break;
+                case 3:
+                    aux->right->image = median_blur_RGB(aux->image, 8);
+                    break;
+                case 4:
+                    aux->right->image = clahe_rgb(aux->image,width, height);
+                    break;
+                
+                aux=aux->right;
 
 void random_effects(ImageType type, RandomList *rl)
 {    
@@ -1139,6 +1214,7 @@ void random_effects(ImageType type, RandomList *rl)
         txt_from_image(droppedFiles.paths[0], TXT_PATH, type);
         
         FILE *file_path = fopen(TXT_PATH, "r");
+
 
         if(type == RGB_)
             aux->image_rgb = read_rgb_image(file_path);

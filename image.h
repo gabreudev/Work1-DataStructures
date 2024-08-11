@@ -97,6 +97,7 @@ typedef struct history {
 typedef struct randomList {
     ImageGray *image_gray;
     ImageRGB *image_rgb;
+
     ImageType type;
     struct randomList *right;   
 } RandomList;
