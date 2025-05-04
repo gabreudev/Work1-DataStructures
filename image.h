@@ -199,14 +199,19 @@ void equalize_tile_rgb(const ImageRGB *image, ImageRGB *equalized,PixelRGB *CDF,
 // RGB: Aplica o clahe, retornando a imagem equalizada 
 ImageRGB *clahe_rgb(const ImageRGB *image, int tile_width, int tile_height);
 
-// compara o pixeis para usar o qsort
-int compare_pixel(const void *a, const void *b);
+// // compara o pixeis para usar o qsort
+// int compare_pixel(const void *a, const void *b);
 
-// ordenar os pixeis usando qsort
-PixelRGB *sort_pixel(PixelRGB *pixel, int ind);
+// // ordenar os pixeis usando qsort
+// PixelRGB *sort_pixel(PixelRGB *pixel, int ind);
 
-// RGB: Calcula a soma dos tiles ao redor do central
-PixelRGB *soma_kernel_RGB(const ImageRGB *image, int index_i, int index_j, int kernel);
+// // RGB: Calcula a soma dos tiles ao redor do central
+// PixelRGB *soma_kernel_RGB(const ImageRGB *image, int index_i, int index_j, int kernel);
+
+// Simplified kernel calculation for RGB blur
+PixelRGB calculate_average_kernel(const ImageRGB *image, int x, int y);
+// Simplified blur function
+ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size) ;
 
 // RGB: substitui cada pixel pela média dos pixels em sua vizinhança
 ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size);

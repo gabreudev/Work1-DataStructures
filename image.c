@@ -762,83 +762,52 @@ ImageRGB *clahe_rgb(const ImageRGB *image, int tile_width, int tile_height)
     return equalized_image;
 }
 
-int compare_pixel(const void *a, const void *b) 
+// Simplified kernel calculation for RGB blur
+PixelRGB calculate_average_kernel(const ImageRGB *image, int x, int y) 
 {
-    PixelRGB *pixelA = (PixelRGB *)a;
-    PixelRGB *pixelB = (PixelRGB *)b;
+    PixelRGB avg = {0, 0, 0};
+    int count = 0;
     
-    int avgA = (pixelA->red + pixelA->green + pixelA->blue) / 3;
-    int avgB = (pixelB->red + pixelB->green + pixelB->blue) / 3;
-    
-    return avgA - avgB;
-}
-
-
-PixelRGB *sort_pixel(PixelRGB *pixel, int ind)
-{
-    qsort(pixel, ind, sizeof(PixelRGB), compare_pixel);
-
-    PixelRGB *result = (PixelRGB *)malloc(1 * sizeof(PixelRGB));
-    check_allocation(result, "sort_pixel");
-
-    *result = pixel[ind / 2];
-
-    return result;
-}
-
-// Calcula a soma dos tiles ao redor do central
-PixelRGB *soma_kernel_RGB(const ImageRGB *image, int index_i, int index_j, int kernel)
-{
-    int lin = index_i, col = index_j, ind = 0;
-
-    PixelRGB *median_pixel = alocar_pixel_RGB(kernel, kernel);
-    check_allocation(median_pixel, "median_pixel");
-
-    for(int i = 0; i < kernel; i++)
+    // Use a fixed 3x3 neighborhood
+    for(int i = -1; i <= 7; i++) 
     {
-        for(int j = 0; j < kernel; j++)
+        for(int j = -1; j <= 7; j++) 
         {
-            int index = vector_position(image->dim.largura, lin, col);
-
-            if(lin >= 0 && col >= 0)
+            int new_x = x + i;
+            int new_y = y + j;
+            
+            // Check bounds
+            if(new_x >= 0 && new_x < image->dim.largura && new_y >= 0 && new_y < image->dim.altura) 
             {
-                median_pixel[ind].blue  = image->pixels[index].blue;
-                median_pixel[ind].red   = image->pixels[index].red;
-                median_pixel[ind].green = image->pixels[index].green;
+                int index = vector_position(image->dim.largura, new_x, new_y);
 
-                ind += 1;
+                avg.red += image->pixels[index].red;
+                avg.green += image->pixels[index].green;
+                avg.blue += image->pixels[index].blue;
+                count++;
             }
-
-            if(i % 2 == 1) 
-                (j < i) ? col++ : lin++;
-            else
-                (j < i) ? col-- : lin--;
         }
     }
-
-    PixelRGB *result = sort_pixel(median_pixel, ind);
-    free_pixel_rgb(median_pixel);
-
-    return result;
+    
+    // Calculate average
+    avg.red /= count;
+    avg.green /= count;
+    avg.blue /= count;
+    
+    return avg;
 }
 
-// RGB: substitui cada pixel pela média dos pixels em sua vizinhança
-ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size)
+// Simplified blur function
+ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size) 
 {
     ImageRGB *image_blur = create_image_rgb(image->dim.largura, image->dim.altura);
     
-    for (int i = 0; i < image->dim.largura ; i++)
-    {
-        for(int j = 0; j < image->dim.altura ; j++)
-        {
-            PixelRGB *pixel = soma_kernel_RGB(image, i, j, kernel_size);
+    for(int i = 0; i < image->dim.largura; i++) {
+        for(int j = 0; j < image->dim.altura; j++) {
+            PixelRGB avg = calculate_average_kernel(image, i, j);
             int index = vector_position(image->dim.largura, i, j);
-
-            image_blur->pixels[index].blue = pixel[0].blue;
-            image_blur->pixels[index].green = pixel[0].green;
-            image_blur->pixels[index].red = pixel[0].red;
+            image_blur->pixels[index] = avg;
         }
-
     }
     
     return image_blur;
@@ -1037,7 +1006,7 @@ RandomList *random_efects(History *history, int width, int height)
                 aux->right->image_rgb = transpose_rgb(aux->image_rgb);
                 break;
             case 3:
-                aux->right->image_rgb = median_blur_RGB(aux->image_rgb, 8);
+                aux->right->image_rgb = median_blur_RGB(aux->image_rgb, 12);
                 break;
             case 4:
                 aux->right->image_rgb = clahe_rgb(aux->image_rgb,width, height);
@@ -1172,7 +1141,7 @@ void main_menu_screen(History **history, bool *textureReload, ImageType actual_t
             case BLUR:
                 if((*history)->type == RGB_)
                 {
-                    new_image = median_blur_RGB((*history)->rgb_image, 8);
+                    new_image = median_blur_RGB((*history)->rgb_image, 24);
                     save_image_rgb((ImageRGB *)new_image, load_txt);
                 }
                 else
@@ -1408,6 +1377,7 @@ void init()
     ///////////////////////////////////////////////////////////
     InitWindow(screenWidth, screenHeight, "PROCESSAMENTO DE IMAGENS");
     ///////////////////////////////////////////////////////////
+    Font font = LoadFont("utils/font.png");
     initialize_random_effects(randomlist_rgb, RGB_);
     initialize_random_effects(randomlist_gray, GRAY_);
     ///////////////////////////////////////////////////////////
@@ -1529,20 +1499,23 @@ void init()
             switch(current_screen)
             {
             case MAIN_MENU:
-                ClearBackground(WHITE);
+                ClearBackground(DARKBROWN);
 
-                DrawText(load_type, 40, 30, 10, DARKGRAY);
+                // DrawText(load_type, 40, 30, 10, BLACK);
+                DrawTextEx(font, load_type, (Vector2) {35, 40}, 20, 1, GRAY);
 
                 // Draw rectangles
                 for (int i = 1; i < NUM_PROCESSES; i++)
                 {
                     DrawRectangleRec(recs_main[i], ((i == currentProcess) || (i == mouseHoverRec)) ? SKYBLUE : LIGHTGRAY);
                     DrawRectangleLines((int)recs_main[i].x, (int) recs_main[i].y, (int) recs_main[i].width, (int) recs_main[i].height, ((i == currentProcess) || (i == mouseHoverRec)) ? BLUE : GRAY);
+                    DrawRectangleLinesEx(recs_main[i], 2, ((i == currentProcess) || (i == mouseHoverRec)) ? BLUE : GRAY); 
                     DrawText( processText[i], (int)( recs_main[i].x + recs_main[i].width/2 - MeasureText(processText[i], 10)/2), (int) recs_main[i].y + 11, 10, ((i == currentProcess) || (i == mouseHoverRec)) ? DARKBLUE : DARKGRAY);
                 }
 
                 DrawTexture(texture, screenWidth - texture.width - 60, screenHeight/2 - texture.height/2, WHITE);
                 DrawRectangleLines(screenWidth - texture.width - 60, screenHeight/2 - texture.height/2, texture.width, texture.height, BLACK);
+                DrawRectangleLinesEx((Rectangle){screenWidth - texture.width - 60, screenHeight/2 - texture.height/2, texture.width, texture.height}, 5, GRAY);
                 break;
             case RANDOM_MENU:
                 ClearBackground(RAYWHITE);
@@ -1576,6 +1549,8 @@ void init()
     UnloadTexture(texture_gray);
     UnloadTexture(random_gray);
     UnloadTexture(random_rgb);
+    // liberar font
+    UnloadFont(font);
     // Liberar históricos
     free_history(history_gray);
     free_history(history_rgb);
