@@ -220,10 +220,6 @@ void initialize_random_effects(RandomList *rl, ImageType type);
 
 // eh menino ou menina 
 int gray_or_rgb(int type);
-// transforma uma imagem RGB ou GRAY em TXT
-void txt_from_image(const char* image_path, const char* output_path, int type);
-// Transforma um TXT em uma imagem RGB ou GRAY
-void image_from_txt(const char* txt_path, const char* output_path, int type);
 // ajusta o tamanho da imagem a ser mostrada na interface 
 void adjust_image_size(Image *image);
 

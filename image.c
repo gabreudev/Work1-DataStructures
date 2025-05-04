@@ -1,14 +1,15 @@
 #include<stdio.h>
 #include<stdlib.h>
-// #include<stdbool.h>
 #include<assert.h>
 #include<errno.h>
 #include<math.h>
 #include<time.h>
 #include<string.h>
 #include<stdlib.h>
-#include<Python.h>
 #include<raylib.h>
+
+// o arquivo image_utils está no diretorio utils no mesmo nivel do arquivo image.c, logo
+#include "utils/image_utils.h"
 #include"image.h"
 
 ///////////////////////////////////////////////////////////////
@@ -635,7 +636,7 @@ void initialize_history(History *history, ImageType type)
     FILE *initial_image;
     if(type == RGB_)
     {
-        initial_image = fopen("utils/input_image_example_RGB.txt", "r");
+        initial_image = fopen("utils/rgb.txt", "r");
         check_allocation(initial_image, "initial_image");
 
         history->type = RGB_;
@@ -643,7 +644,7 @@ void initialize_history(History *history, ImageType type)
     }
     else
     {
-        initial_image = fopen("utils/input_image_example_Gray.txt", "r");
+        initial_image = fopen("utils/gray.txt", "r");
         check_allocation(initial_image, "initial_image");
 
         history->gray_image = read_gray_image(initial_image);
@@ -657,8 +658,8 @@ void initialize_random_effects(RandomList *rl, ImageType type)
     FILE *initial_image;
     if(type == RGB_) 
     {
-        initial_image = fopen("utils/input_image_example_RGB.txt", "r");
-        check_allocation(initial_image, "initial_image");
+        initial_image = fopen("utils/rgb.txt", "r");
+        check_allocation(initial_image, "initial_image rgb");
 
         rl->type = RGB_;
         rl->image_rgb = read_rgb_image(initial_image);
@@ -666,8 +667,8 @@ void initialize_random_effects(RandomList *rl, ImageType type)
     } 
     else 
     {
-        initial_image = fopen("utils/input_image_example_Gray.txt", "r");
-        check_allocation(initial_image, "initial_image");
+        initial_image = fopen("utils/gray.txt", "r");
+        check_allocation(initial_image, "initial_image gray");
 
         rl->type = GRAY_;
         rl->image_gray = read_gray_image(initial_image);
@@ -843,23 +844,6 @@ ImageRGB *median_blur_RGB(const ImageRGB *image, int kernel_size)
     return image_blur;
 }
 
-// int main()
-// {
-//     FILE *path = fopen("/home/alef/Linguagens/faculdade/Work1-DataStructures/utils/input_image_example_RGB.txt", "r");
-//     check_allocation(path, "path");
-
-//     ImageRGB *image = read_rgb_image(path);
-//     fclose(path);
-
-//     FILE *load = fopen("load.txt", "w");
-
-//     ImageRGB *blur = median_blur_RGB(image, 8);
-//     save_image_rgb(blur, load);
-
-//     fclose(load);
-// }
-
-
 int gray_or_rgb(int type)
 {
     if(type == GRAY_)
@@ -867,147 +851,6 @@ int gray_or_rgb(int type)
     return 0;
 }
 
-// transforma uma imagem RGB ou GRAY em TXT
-void txt_from_image(const char* image_path, const char* output_path, int type) 
-{
-    PyObject *pName, *pModule, *pFunc;
-    PyObject *pArgs, *pValue;
-    
-
-    printf("%s %s %d\n", image_path, output_path, type);
-
-    // Inicializar o interpretador Python
-    // Py_Initialize();
-
-    PyRun_SimpleString("import sys");
-    PyRun_SimpleString("sys.path.append(\".\")");
-
-    // Nome do módulo Python (arquivo .py sem a extensão)
-    pName = PyUnicode_DecodeFSDefault("utils.image_utils");
-    pModule = PyImport_Import(pName);
-    Py_DECREF(pName);
-
-    if (pModule != NULL) 
-    {
-        // Nome da função a ser chamada
-
-        pFunc = PyObject_GetAttrString(pModule, "txt_from_image_gray");
-    
-        int is_gray = gray_or_rgb(type);
-
-        if (pFunc && PyCallable_Check(pFunc)) 
-        {
-            // Criar argumentos para a função Python
-            pArgs = PyTuple_Pack(3, PyUnicode_FromString(image_path), PyUnicode_FromString(output_path), PyLong_FromLong(is_gray));
-
-            // Chamar a função Python
-            PyObject *pValue = PyObject_CallObject(pFunc, pArgs);
-            Py_DECREF(pArgs);
-
-            if (pValue != NULL) 
-            {
-                printf("Chamou txt_from_image_gray com sucesso\n");
-                Py_DECREF(pValue);
-            } 
-            else 
-            {
-                Py_DECREF(pFunc);
-                Py_DECREF(pModule);
-                PyErr_Print();
-                fprintf(stderr, "Chamada da função txt_from_image_gray falhou\n");
-                return;
-            }
-        } 
-        else 
-        {
-            if (PyErr_Occurred())
-                PyErr_Print();
-
-            fprintf(stderr, "Não conseguiu encontrar a função txt_from_image_gray\n");
-        }
-        Py_XDECREF(pFunc);
-        Py_DECREF(pModule);
-    } 
-    else 
-    {
-        PyErr_Print();
-        fprintf(stderr, "Falha ao carregar o módulo image_processing\n");
-        return;
-    }
-
-    // Finalizar o interpretador Python
-    // Py_Finalize();
-}
-
-// Transforma um TXT em uma imagem RGB ou GRAY
-void image_from_txt(const char* txt_path, const char* output_path, int type) 
-{
-    PyObject *pName, *pModule, *pFunc;
-    PyObject *pArgs, *pValue;
-
-    // Inicializar o interpretador Python
-    // Py_Initialize();
-
-    PyRun_SimpleString("import sys");
-    PyRun_SimpleString("sys.path.append(\".\")");
-
-    // Nome do módulo Python (arquivo .py sem a extensão)
-    pName = PyUnicode_DecodeFSDefault("utils.image_utils");
-    pModule = PyImport_Import(pName);
-    Py_DECREF(pName);
-
-    if (pModule != NULL) 
-    {
-        printf("%s %s %d\n", txt_path, output_path, type);
-        // Nome da função a ser chamada
-        if(type == RGB_)
-            pFunc = PyObject_GetAttrString(pModule, "image_rgb_from_txt");
-        else
-            pFunc = PyObject_GetAttrString(pModule, "image_gray_from_txt");
-        // pFunc = PyObject_GetAttrString(pModule, "execute");
-
-        if (pFunc && PyCallable_Check(pFunc)) 
-        {
-            // Criar argumentos para a função Python
-            pArgs = PyTuple_Pack(2, PyUnicode_FromString(txt_path), PyUnicode_FromString(output_path));
-            // pArgs = PyTuple_Pack(0);
-
-            // Chamar a função Python
-            PyObject *pValue  = PyObject_CallObject(pFunc, pArgs);
-            Py_DECREF(pArgs);
-
-            if (pValue != NULL) 
-            {
-                printf("Chamou image_gray_from_txt com sucesso\n");
-                Py_DECREF(pValue);
-            } 
-            else
-            {
-                Py_DECREF(pFunc);
-                Py_DECREF(pModule);
-                PyErr_Print();
-                fprintf(stderr, "Chamada da função image_gray_from_txt falhou\n");
-                return;
-            }
-        } 
-        else 
-        {
-            if (PyErr_Occurred())
-                PyErr_Print();
-            fprintf(stderr, "Não conseguiu encontrar a função image_gray_from_txt\n");
-        }
-        Py_XDECREF(pFunc);
-        Py_DECREF(pModule);
-    } else 
-    {
-        PyErr_Print();
-        fprintf(stderr, "Falha ao carregar o módulo image_processing\n");
-        return;
-    }
-
-    // Finalizar o interpretador Python
-    // Py_Finalize();
-}
 
 void adjust_image_size(Image *image)
 {
@@ -1134,67 +977,79 @@ void load_new_texture_random(Texture2D *texture, RandomList *rl, char *file_path
 
     UnloadImage(new_image);
 }
-RandomList *random_efects(History *history, int width, int height){    
+RandomList *random_efects(History *history, int width, int height)
+{
+
     srand(time(NULL));
-    RandomList *randomList;
-    randomList->image = history->image;
+    RandomList *randomList = alloc_random();
+    if(history->type == GRAY_)
+        randomList->image_gray = history->gray_image;
+    else
+        randomList->image_rgb = history->rgb_image;
+
     RandomList *aux = randomList;
-    if (history->type==GRAY)
+    if (history->type== GRAY_)
+    {
+            
+        for (int i = 0; i < 5; i++)
         {
-            
-            for (int i = 0; i < 5; i++)
+            int chosed = rand() % 5;
+
+            switch (chosed)
             {
-                int chosed = rand() % 5;
+            case 0:
+                aux->right->image_gray = flip_horizontal_gray(aux->image_gray);
+                break;
+            case 1:
+                aux->right->image_gray = flip_vertical_gray(aux->image_gray);
+                break;
+            case 2:
+                aux->right->image_gray = transpose_gray(aux->image_gray);
+                break;
+            case 3:
+                aux->right->image_gray = median_blur_gray(aux->image_gray, 8);
+                break;
+            case 4:
+                aux->right->image_gray = clahe_gray(aux->image_gray,width, height);
+                break;
 
-                switch (chosed)
-                {
-                case 0:
-                    aux->right->image = flip_horizontal_gray(aux->image);
-                    break;
-                case 1:
-                    aux->right->image = flip_vertical_gray(aux->image);
-                    break;
-                case 2:
-                    aux->right->image = transpose_gray(aux->image);
-                    break;
-                case 3:
-                    aux->right->image = median_blur_gray(aux->image, 8);
-                    break;
-                case 4:
-                    aux->right->image = clahe_gray(aux->image,width, height);
-                    break;
-
-                aux=aux->right;
-                
-                }
+            aux=aux->right;
+            
             }
-            return randomList;
         }
+    }
+    else
+    {
 
-            
-            for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 5; i++)
+        {
+            int chosed = rand() % 5;
+
+            switch (chosed)
             {
-                int chosed = rand() % 5;
+            case 0:
+                aux->right->image_rgb = flip_horizontal_rgb(aux->image_rgb);
+                break;
+            case 1:
+                aux->right->image_rgb = flip_vertical_rgb(aux->image_rgb);
+                break;
+            case 2:
+                aux->right->image_rgb = transpose_rgb(aux->image_rgb);
+                break;
+            case 3:
+                aux->right->image_rgb = median_blur_RGB(aux->image_rgb, 8);
+                break;
+            case 4:
+                aux->right->image_rgb = clahe_rgb(aux->image_rgb,width, height);
+                break;
+            
+            aux=aux->right;
+            }
+        }
+    }
+    return randomList;
+}  
 
-                switch (chosed)
-                {
-                case 0:
-                    aux->right->image = flip_horizontal_rgb(aux->image);
-                    break;
-                case 1:
-                    aux->right->image = flip_vertical_rgb(aux->image);
-                    break;
-                case 2:
-                    aux->right->image = transpose_rgb(aux->image);
-                    break;
-                case 3:
-                    aux->right->image = median_blur_RGB(aux->image, 8);
-                    break;
-                case 4:
-                    aux->right->image = clahe_rgb(aux->image,width, height);
-                    break;
-                
-                aux=aux->right;
 
 void random_effects(ImageType type, RandomList *rl)
 {    
@@ -1221,7 +1076,7 @@ void random_effects(ImageType type, RandomList *rl)
         else
             aux->image_gray = read_gray_image(file_path);
 
-        free(file_path);
+        fclose(file_path);
         UnloadDroppedFiles(droppedFiles);    // Unload filepaths from memory
     }
 
@@ -1317,7 +1172,7 @@ void main_menu_screen(History **history, bool *textureReload, ImageType actual_t
             case BLUR:
                 if((*history)->type == RGB_)
                 {
-                    new_image = median_blur_RGB((*history)->rgb_image, 12);
+                    new_image = median_blur_RGB((*history)->rgb_image, 8);
                     save_image_rgb((ImageRGB *)new_image, load_txt);
                 }
                 else
@@ -1395,8 +1250,12 @@ void main_menu_screen(History **history, bool *textureReload, ImageType actual_t
                     *history = back_image(*history, 1);
                     ((*history)->type == RGB_) ? 
                         save_image_rgb((*history)->rgb_image, load_txt) : save_image_gray((*history)->gray_image, load_txt);
+                    
+                    if((*history)->type == RGB_)
+                        image_rgb_from_txt(TXT_PATH, "image.png");
+                    else 
+                        image_gray_from_txt(TXT_PATH, "image.png");
 
-                    image_from_txt(TXT_PATH, "image.png", (*history)->type);
                     load_new_texture(texture, *history, "image.png", 0);
                 }
                 ///////////////
@@ -1408,7 +1267,11 @@ void main_menu_screen(History **history, bool *textureReload, ImageType actual_t
                     ((*history)->type == RGB_) ? 
                         save_image_rgb((*history)->rgb_image, load_txt) : save_image_gray((*history)->gray_image, load_txt);
 
-                    image_from_txt(TXT_PATH, "image.png", (*history)->type);
+                    if((*history)->type == RGB_)
+                        image_rgb_from_txt(TXT_PATH, "image.png");
+                    else 
+                        image_gray_from_txt(TXT_PATH, "image.png");
+
                     load_new_texture(texture, *history, "image.png", 0);
                 } 
                 ///////////////
@@ -1420,7 +1283,11 @@ void main_menu_screen(History **history, bool *textureReload, ImageType actual_t
                     ((*history)->type == RGB_) ? 
                         save_image_rgb((*history)->rgb_image, load_txt) : save_image_gray((*history)->gray_image, load_txt);
 
-                    image_from_txt(TXT_PATH, "image.png", (*history)->type);
+                    if((*history)->type == RGB_)
+                        image_rgb_from_txt(TXT_PATH, "image.png");
+                    else 
+                        image_gray_from_txt(TXT_PATH, "image.png");
+
                     load_new_texture(texture, *history, "image.png", 0);
                 } 
                 break;
@@ -1435,8 +1302,12 @@ void main_menu_screen(History **history, bool *textureReload, ImageType actual_t
         if(currentProcess < 6)
         {
             // transforma o history em png e atualiza a textura a ser mostrada
-            image_from_txt(TXT_PATH, IMAGE_PATH, (*history)->type);
-            load_new_texture(texture, *history, IMAGE_PATH, 0);
+            if((*history)->type == RGB_)
+            image_rgb_from_txt(TXT_PATH, "image.png");
+            else 
+                image_gray_from_txt(TXT_PATH, "image.png");
+
+            load_new_texture(texture, *history, "image.png", 0);
         }
 
         *textureReload = false;
@@ -1460,7 +1331,10 @@ RandomList *random_menu_screen(RandomList **rl, Texture2D *texture, ImageType ty
             ((*rl)->type == RGB_) ? 
                 save_image_rgb((*rl)->image_rgb, file_path) : save_image_gray((*rl)->image_gray, file_path);
 
-            image_from_txt(TXT_PATH, IMAGE_PATH, (*rl)->type);
+            if((*rl)->type == RGB_)
+                image_rgb_from_txt(TXT_PATH, IMAGE_PATH);
+            else 
+                image_gray_from_txt(TXT_PATH, IMAGE_PATH);
 
             // Load new image and update texture
             Image new_image = LoadImage(IMAGE_PATH);
@@ -1519,7 +1393,6 @@ RandomList *random_menu_screen(RandomList **rl, Texture2D *texture, ImageType ty
 
 void init()
 {
-    Py_Initialize();
     const int screenWidth = 700;
     const int screenHeight = 450;
     char load_type[] = "DROPPED FILE TYPE - RGB:  ";
@@ -1711,7 +1584,6 @@ void init()
     free_random(randomlist_rgb);
     // Fechar a janela do Raylib
     CloseWindow();
-    Py_Finalize();
     //--------------------------------------------------------------------------------------
 }
 
