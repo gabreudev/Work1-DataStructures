@@ -9,4 +9,3 @@ gcc `pkg-config --cflags raylib` -Wall -Wextra -o main main.c image.c  utils/ima
 
 # gdb ./main
 ./main
- 

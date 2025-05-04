@@ -1501,7 +1501,6 @@ void init()
             case MAIN_MENU:
                 ClearBackground(DARKBROWN);
 
-                // DrawText(load_type, 40, 30, 10, BLACK);
                 DrawTextEx(font, load_type, (Vector2) {35, 40}, 20, 1, GRAY);
 
                 // Draw rectangles
